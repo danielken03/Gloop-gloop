@@ -310,6 +310,7 @@ function createRaster(W,H,COLORS,KR=13,FC=2){
         if(v>best[k]){sec[k]=best[k];best[k]=v;own[k]=idx}else if(v>sec[k])sec[k]=v}}
       idx++;
     }
+    if(hiOut)return paintHi(lev);
     for(let k=0;k<N;k++){const b=best[k],o=k*4;
       let a=(b-(T-.1))/.2;if(a<=0){out[o+3]=0;continue}if(a>1)a=1;
       let shade=b<T+.3?.86:1;
@@ -319,7 +320,45 @@ function createRaster(W,H,COLORS,KR=13,FC=2){
     }
     return out;
   }
-  return {render,setColors,FW,FH};
+  // smooth edges: blend the coarse field up to a finer grid before deciding what's goo,
+  // so outlines and seams are drawn at HI pixels per game unit instead of in 2-unit blocks
+  let HI=0,OW=0,OH=0,hiOut=null;
+  let hi32=null,PACK=[];
+  function setHi(h){HI=h;OW=Math.ceil(W*h);OH=Math.ceil(H*h);hiOut=new Uint8ClampedArray(OW*OH*4);hi32=new Uint32Array(hiOut.buffer)}
+  function paintHi(lev){
+    const o8=hiOut,o32=hi32,lo=T-.1,full=T+.4,inv=1/(HI*FC);o32.fill(0);
+    // solid colours packed once per frame (little-endian RGBA)
+    for(let i=0;i<lev.length;i++){const c=RGB[lev[i]];PACK[i]=(255<<24|c[2]<<16|c[1]<<8|c[0])>>>0}
+    for(let oy=0;oy<OH;oy++){
+      let fy=(oy+.5)*inv-.5;if(fy<0)fy=0;if(fy>FH-1.001)fy=FH-1.001;const y0=fy|0,ty=fy-y0,r0=y0*FW,r1=r0+FW;
+      for(let ox=0;ox<OW;ox++){
+        let fx=(ox+.5)*inv-.5;if(fx<0)fx=0;if(fx>FW-1.001)fx=FW-1.001;const x0=fx|0,tx=fx-x0;
+        const k00=r0+x0,k01=k00+1,k10=r1+x0,k11=k10+1;
+        const b00=best[k00],b01=best[k01],b10=best[k10],b11=best[k11];
+        if(b00<=lo&&b01<=lo&&b10<=lo&&b11<=lo)continue;
+        // deep inside one gloop: plain solid colour, no blending needed
+        if(b00>=full&&b01>=full&&b10>=full&&b11>=full&&sec[k00]<.2&&sec[k01]<.2&&sec[k10]<.2&&sec[k11]<.2){const w=own[k00];
+          if(own[k01]===w&&own[k10]===w&&own[k11]===w){o32[oy*OW+ox]=PACK[w];continue}}
+        const b=(b00*(1-tx)+b01*tx)*(1-ty)+(b10*(1-tx)+b11*tx)*ty;
+        let a=(b-lo)/.2;if(a<=0)continue;if(a>1)a=1;
+        const sv=(sec[k00]*(1-tx)+sec[k01]*tx)*(1-ty)+(sec[k10]*(1-tx)+sec[k11]*tx)*ty;
+        let e=(b-(T+.2))/.2;e=e<0?0:e>1?1:e;let shade=.86+.14*e*e*(3-2*e);
+        const kk=(ty<.5?(tx<.5?k00:k01):(tx<.5?k10:k11));
+        // colour from the nearest cell that actually holds goo
+        let ow=own[kk];if(best[kk]<=0){ow=b00>=b01&&b00>=b10&&b00>=b11?own[k00]:b01>=b10&&b01>=b11?own[k01]:b10>=b11?own[k10]:own[k11]}
+        if(sv>.2&&b-sv<.8){
+          // seam: blend "how much more this gloop than its neighbour" with a sign, so the dark line is even along its length
+          const d00=own[k00]===ow?best[k00]-sec[k00]:sec[k00]-best[k00],d01=own[k01]===ow?best[k01]-sec[k01]:sec[k01]-best[k01],
+                d10=own[k10]===ow?best[k10]-sec[k10]:sec[k10]-best[k10],d11=own[k11]===ow?best[k11]-sec[k11]:sec[k11]-best[k11];
+          const g=Math.abs((d00*(1-tx)+d01*tx)*(1-ty)+(d10*(1-tx)+d11*tx)*ty)/.75;
+          if(g<1){const sm=g*g*(3-2*g);shade*=.12+.88*sm}}
+        const c=RGB[lev[ow]],o=(oy*OW+ox)*4;
+        o8[o]=c[0]*shade;o8[o+1]=c[1]*shade;o8[o+2]=c[2]*shade;o8[o+3]=a*255;
+      }
+    }
+    return o8;
+  }
+  return {render,setColors,setHi,get OW(){return OW},get OH(){return OH},FW,FH};
 }
 (()=>{
 const W=480,H=560,L=12,R=W-12,B=H-12,CH=52,HY=74,GAP=14,S2=Math.SQRT1_2,PADY=175,PADR=30,PADMAX=9;
@@ -481,7 +520,9 @@ function applyLook(key,save){
 }
 $('look').onclick=()=>applyLook(LOOK===LOOKS.midnight?'original':'midnight',true);
 {let k='midnight';try{k=localStorage.getItem('gloop-look')||k}catch(e){}applyLook(k,false)}
-const off=document.createElement('canvas');off.width=RAS.FW;off.height=RAS.FH;const octx=off.getContext('2d');const oimg=octx.createImageData(RAS.FW,RAS.FH);
+const SMOOTH=1; // finer goo edges (set to 0 for the old blockier look)
+if(SMOOTH)RAS.setHi(SMOOTH);
+const off=document.createElement('canvas');off.width=SMOOTH?RAS.OW:RAS.FW;off.height=SMOOTH?RAS.OH:RAS.FH;const octx=off.getContext('2d');const oimg=octx.createImageData(off.width,off.height);
 function drawFluid(){
   const c=fctx;c.setTransform(scale*dpr,0,0,scale*dpr,0,0);c.clearRect(0,0,W,H);
   // a soft glow under each floating gloop
@@ -489,7 +530,7 @@ function drawFluid(){
     const g=c.createRadialGradient(b.cx,b.cy+r*.9,2,b.cx,b.cy+r*.9,r*.9);g.addColorStop(0,`rgba(${LOOK.glow},.22)`);g.addColorStop(1,`rgba(${LOOK.glow},0)`);
     c.fillStyle=g;c.beginPath();c.ellipse(b.cx,b.cy+r*.9,r*.9,r*.3,0,0,7);c.fill()}
   oimg.data.set(RAS.render(sim));octx.putImageData(oimg,0,0);
-  c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.drawImage(off,0,0,RAS.FW*2,RAS.FH*2);
+  c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.drawImage(off,0,0,off.width/(SMOOTH||0.5),off.height/(SMOOTH||0.5));
   c.fillStyle='rgba(255,255,255,.26)';c.beginPath();
   for(const b of sim.blobs.values()){const rr=Math.sqrt(b.n)*3.4;c.moveTo(b.cx-rr*.4+rr*.32,b.cy-rr*.45);c.ellipse(b.cx-rr*.4,b.cy-rr*.45,rr*.32,rr*.17,-.5,0,6.2832)}
   c.fill();
