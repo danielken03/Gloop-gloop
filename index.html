@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#05060a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gloop Gloop">
+<meta name="description" content="A squishy merge game. Launch gloops, merge matching numbers, and keep the pressure pads from maxing out.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}*,*::before,*::after{box-sizing:border-box}body{margin:0;font:14px/1.4 system-ui,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}[hidden]{display:none!important}</style>
+<title>Gloop Gloop</title>
+</head>
+<body>
+
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Figtree:wght@500;700&display=swap">
+<style>
+/* Layout: one-screen arcade cabinet — slim header bar, the pit centered and scaled to fit, number chain below. */
+:root{
+  --bg:#05060a;--pit:#0b0d14;--pit-edge:#262b3a;--ink:#eef0f7;--muted:#9097ad;--accent:#ffe6a3;--danger:#ff9aa2;--btn:#141824;--btn-hover:#1c2131;
+  --display:"Bagel Fat One","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;overflow:hidden;box-sizing:border-box;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  background-image:radial-gradient(circle at 20% 10%,#0e1424 0,transparent 45%),radial-gradient(circle at 85% 90%,#0c1020 0,transparent 40%)}
+.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:12px;box-sizing:border-box;max-width:640px;margin:0 auto}
+header{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"title stats btns";align-items:center;gap:8px 12px}
+header h1{grid-area:title}
+@media (max-width:560px){header{grid-template-columns:1fr auto;grid-template-areas:"title btns" "stats stats"}header .stats{justify-content:flex-start;margin-left:0}header .stat{align-items:flex-start}}
+h1{font-family:var(--display);font-weight:400;font-size:1.7rem;margin:0;line-height:1;color:var(--accent);text-shadow:0 3px 0 #3a4160}
+.stats{grid-area:stats;display:flex;gap:18px;justify-content:flex-end;align-items:center;min-width:0}
+.stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05}
+.stat span{font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+.stat b{font-family:var(--display);font-weight:400;font-size:1.35rem;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:4ch}
+.next{display:flex;align-items:center;gap:6px}
+.next canvas{width:34px;height:34px}
+.btns{grid-area:btns;display:flex;gap:6px}
+button{font-family:var(--body);font-weight:700;font-size:.8rem;color:var(--ink);background:var(--btn);border:2px solid var(--pit-edge);border-radius:999px;padding:6px 12px;cursor:pointer}
+button:hover{background:var(--btn-hover)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+.pit{position:relative}
+.pit canvas{position:absolute;inset:0;display:block}
+#fg{touch-action:none}
+.chain{display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap}
+.chain i{display:flex;align-items:center;justify-content:center;border-radius:50%;font-style:normal;font-family:var(--display);color:#16181f;font-size:.62rem;height:24px;min-width:24px;padding:0 3px;box-sizing:border-box}
+.chain em{color:var(--muted);font-style:normal;font-size:.7rem}
+.hint.credit{opacity:.6;font-size:.7rem}
+.hint{text-align:center;color:var(--muted);font-size:.78rem;margin:0}
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.card{background:rgba(8,9,14,.94);border:2px solid var(--pit-edge);border-radius:24px;padding:22px 28px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.card h2{font-family:var(--display);font-weight:400;font-size:2rem;margin:0;color:var(--danger)}
+.card p{margin:0;color:var(--muted)}
+.card .big{font-family:var(--display);font-size:2.6rem;color:var(--ink);font-variant-numeric:tabular-nums}
+.card button{font-size:1rem;padding:10px 22px;background:var(--accent);color:#16181f;border-color:#e9cf86}
+.card button.ghost,.card #newgame.second{background:var(--btn);color:var(--ink);border-color:var(--pit-edge)}
+.card .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.card .col{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:220px;margin-top:6px}
+.card .col button{width:100%}
+.card .note{font-size:.8rem;min-height:1.2em;max-width:260px}
+.card .hometitle{color:var(--accent);text-shadow:0 3px 0 #3a4160;font-size:2.4rem}
+.home{background:rgba(5,6,10,.55)}
+@media (max-width:420px){h1{font-size:1.35rem}.stat b{font-size:1.1rem}.chain i{height:20px;min-width:20px;font-size:.55rem}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="goo" color-interpolation-filters="sRGB">
+    <feGaussianBlur id="gooBlur" in="SourceGraphic" stdDeviation="5" result="b"/>
+    <feColorMatrix in="b" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -11"/>
+  </filter>
+</svg>
+
+<div class="app">
+  <header>
+    <h1>Gloop Gloop</h1>
+    <div class="stats">
+      <div class="stat"><span>Score</span><b id="score">0</b></div>
+      <div class="stat"><span>Best</span><b id="best">0</b></div>
+    </div>
+    <div class="btns">
+      <button id="sound" type="button">Sound: off</button>
+      <button id="saveexit" type="button">Save &amp; exit</button>
+    </div>
+  </header>
+  <div class="stage" id="stage">
+    <div class="pit" id="pit">
+      <canvas id="bg"></canvas>
+      <canvas id="fluid"></canvas>
+      <canvas id="fg" aria-label="Game pit. Press on a floating gloop, drag to aim, release to launch."></canvas>
+    </div>
+    <div class="over" id="over" hidden>
+      <div class="card">
+        <h2>Pit's full</h2>
+        <p>Final score</p>
+        <div class="big" id="final">0</div>
+        <p id="bestline"></p>
+        <div class="row"><button id="again" type="button">Play again</button><button id="tohome" type="button" class="ghost">Home</button></div>
+      </div>
+    </div>
+    <div class="over home" id="home">
+      <div class="card">
+        <h2 class="hometitle">Gloop Gloop</h2>
+        <p>Best score</p>
+        <div class="big" id="homebest">0</div>
+        <div class="col">
+          <button id="resume" type="button" hidden>Resume game</button>
+          <button id="newgame" type="button">Start new game</button>
+        </div>
+        <p class="note" id="homenote" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+  <div class="chain" id="chain"></div>
+  <p class="hint">Your game saves itself every half minute; Save &amp; exit saves right away. Press on a floating gloop and drag to aim; the arrow shows direction and power. Let go to launch. Matching numbers merge, and a launched gloop that merges with a floating one keeps floating. If the goo pushes both side pads in to the max at the same time, it's game over.</p>
+<p class="hint credit">Inspired by sobosuba. Not affiliated with sobosuba or its developer.</p>
+</div>
+
+<script>
+// ---- fluid core (double-density relaxation, per-blob cohesion) ----
+function createSim(cfg){
+  const {W,H,planes}=cfg;const circles=cfg.circles||[];
+  const MAXP=20000;
+  const HR=cfg.h||15;            // interaction radius (px)
+  const K=cfg.K??0.05, KN=cfg.KN??0.25, RHO0=cfg.RHO0??3, G=cfg.G??0.11, COH=cfg.COH??0.0008, VISC=cfg.VISC??0.08, DAMP=cfg.DAMP??0.985, VMAX=cfg.VMAX??99,AIR=cfg.AIR??0, RSPAN=cfg.RSPAN??11, TETHER=cfg.TETHER??0.03, WOBDAMP=cfg.WOBDAMP??0.975, SLIP=cfg.SLIP??1, REST=cfg.REST??0;let tick=0;const POP=cfg.POP??0.7,HFLAT=cfg.HFLAT??0.006,CDAMP=cfg.CDAMP??0.35,FRIC=cfg.FRIC??0,SIZEPOW=cfg.SIZEPOW??1;const CROSS=cfg.CROSS??0.55,pm=new Float32Array(MAXP),sk=new Uint8Array(MAXP);
+  const x=new Float32Array(MAXP),y=new Float32Array(MAXP),px=new Float32Array(MAXP),py=new Float32Array(MAXP),
+        vx=new Float32Array(MAXP),vy=new Float32Array(MAXP),bl=new Int32Array(MAXP);
+  let n=0;
+  const blobs=new Map();let nextId=1;
+  const CS=HR,GX=Math.ceil(W/CS)+1,GY=Math.ceil((H+200)/CS)+1,OFF=200;
+  const cellStart=new Int32Array(GX*GY+1),cellCnt=new Int32Array(GX*GY),order=new Int32Array(MAXP),cellOf=new Int32Array(MAXP);
+  const nbJ=new Int32Array(256),nbQ=new Float32Array(256),nbX=new Float32Array(256),nbY=new Float32Array(256);
+  const merges=[];
+
+  function addBlob(cx,cy,level,count,spacing,ivx=0,ivy=0){
+    const id=nextId++;blobs.set(id,{id,level,age:0,n:0,cx,cy,top:cy,vy:0,dead:false});
+    const c=spacing*0.62;
+    for(let i=0;i<count&&n<MAXP;i++){const r=c*Math.sqrt(i+.5),a=i*2.39996;
+      x[n]=px[n]=cx+Math.cos(a)*r;y[n]=py[n]=cy+Math.sin(a)*r;vx[n]=ivx;vy[n]=ivy;bl[n]=id;n++}
+    return id;
+  }
+  function removeWhere(fn){let w=0;for(let i=0;i<n;i++){if(fn(i))continue;if(w!==i){x[w]=x[i];y[w]=y[i];px[w]=px[i];py[w]=py[i];vx[w]=vx[i];vy[w]=vy[i];bl[w]=bl[i]}w++}n=w}
+  function grid(){
+    cellCnt.fill(0);
+    for(let i=0;i<n;i++){let gx=(x[i]/CS)|0,gy=((y[i]+OFF)/CS)|0;gx=gx<0?0:gx>=GX?GX-1:gx;gy=gy<0?0:gy>=GY?GY-1:gy;const c=gy*GX+gx;cellOf[i]=c;cellCnt[c]++}
+    let s=0;for(let c=0;c<GX*GY;c++){cellStart[c]=s;s+=cellCnt[c]}cellStart[GX*GY]=s;
+    cellCnt.fill(0);for(let i=0;i<n;i++){const c=cellOf[i];order[cellStart[c]+cellCnt[c]++]=i}
+  }
+  function stats(){
+    for(const b of blobs.values()){b.n=0;b.sx=0;b.sy=0;b.top=1e9;b.svy=0}
+    for(let i=0;i<n;i++){const b=blobs.get(bl[i]);b.n++;b.sx+=x[i];b.sy+=y[i];b.svy+=vy[i];if(y[i]<b.top)b.top=y[i]}
+    for(const [id,b] of blobs){if(b.n===0){blobs.delete(id);continue}b.cx=b.sx/b.n;b.cy=b.sy/b.n;b.vy=b.svy/b.n}
+  }
+  function step(){
+    stats();
+    for(const b of blobs.values()){if(b.ramp===undefined)b.ramp=1;if(b.ramp<1)b.ramp=Math.min(1,b.ramp+1/240);b.k=b.ramp*b.ramp;b.dmp=b.wob>0?WOBDAMP:DAMP;if(b.wob>0)b.wob--;if(b.lock>0)b.lock--;if(b.slick>0)b.slick--;
+      const mvx=b.mvx||0,mvy=b.mvy||0;
+      if(b.held){b.fx=(b.tx-b.cx)*0.02-mvx*0.18;b.fy=(b.ty-b.cy)*0.02-mvy*0.18}
+      else if(b.hover){const ax=(b.tx-b.cx)*0.0008;b.fx=Math.max(-0.012,Math.min(0.012,ax))-mvx*0.04;b.fy=(b.ty-b.cy)*0.006-mvy*0.08}
+      else{b.fx=0;b.fy=G}}
+    for(let i=0;i<n;i++){const b=blobs.get(bl[i]);pm[i]=b.slick>0?Math.max(b.n,200):b.hover?b.n*0.25:b.n;sk[i]=b.slick>0?1:0;vx[i]+=b.fx;vy[i]+=b.fy;if(b.hover)vy[i]+=(b.ty-y[i])*HFLAT;const ddx=b.cx-x[i],ddy=b.cy-y[i],ck=COH*b.k;vx[i]+=ddx*ck;vy[i]+=ddy*ck;
+      const re=Math.sqrt(b.n)*RSPAN,d2=ddx*ddx+ddy*ddy;if(d2>re*re){const d=Math.sqrt(d2),f=(d-re)/d*TETHER*b.k;vx[i]+=ddx*f;vy[i]+=ddy*f}
+      px[i]=x[i];py[i]=y[i];x[i]+=vx[i];y[i]+=vy[i]}
+    grid();
+    merges.length=0;
+    for(let i=0;i<n;i++){
+      const xi=x[i],yi=y[i];let gx=(xi/CS)|0,gy=((yi+OFF)/CS)|0;
+      let rho=0,rhoN=0,m=0;
+      for(let oy=-1;oy<=1;oy++){const cy=gy+oy;if(cy<0||cy>=GY)continue;
+        for(let ox=-1;ox<=1;ox++){const cx=gx+ox;if(cx<0||cx>=GX)continue;const c=cy*GX+cx;
+          for(let k=cellStart[c],e=cellStart[c+1];k<e;k++){const j=order[k];if(j===i)continue;
+            const dx=x[j]-xi,dy=y[j]-yi,d2=dx*dx+dy*dy;
+            if(bl[j]!==bl[i]&&d2<HR*HR*0.85){const a=blobs.get(bl[i]),b=blobs.get(bl[j]);if(a&&b&&a.level===b.level)merges.push(bl[i],bl[j])}
+            if(d2>=HR*HR||m>=256)continue;
+            const d=Math.sqrt(d2)||.001,q=1-d/HR;rho+=q*q;rhoN+=q*q*q;nbJ[m]=j;nbQ[m]=q;nbX[m]=dx/d;nbY[m]=dy/d;m++}}}
+      const P=K*(rho-RHO0),Pn=KN*rhoN,bi=bl[i];let ax=0,ay=0;
+      for(let t=0;t<m;t++){const j=nbJ[t],q=nbQ[t],same=bl[j]===bi;
+        const p=same?P:Math.max(P,0)+0.006;
+        let D=HR*(p*q+Pn*q*q)*0.5;
+        if(same){x[j]+=nbX[t]*D;y[j]+=nbY[t]*D;ax-=nbX[t]*D;ay-=nbY[t]*D}
+        else{D*=CROSS;const mi=Math.pow(pm[i],SIZEPOW),mj=Math.pow(pm[j],SIZEPOW),s=2/(mi+mj),wj=mi*s,wi=mj*s; // bigger gloops shove smaller ones (mildly)
+          x[j]+=nbX[t]*D*wj;y[j]+=nbY[t]*D*wj;ax-=nbX[t]*D*wi;ay-=nbY[t]*D*wi}
+      }
+      x[i]+=ax;y[i]+=ay;
+    }
+    for(let i=0;i<n;i++){
+      const ivx=x[i]-px[i],ivy=y[i]-py[i];let hx=0,hy=0,hit=0;
+      for(const pl of planes){const s=pl[0]*x[i]+pl[1]*y[i]-pl[2];if(s<2){x[i]+=pl[0]*(2-s);y[i]+=pl[1]*(2-s);const vn=ivx*pl[0]+ivy*pl[1];if(vn<0){hx-=pl[0]*vn;hy-=pl[1]*vn;hit=1}}}
+      for(const cc of circles){const dx=x[i]-cc.x,dy=y[i]-cc.y,d2=dx*dx+dy*dy,rr=cc.r+4,rz=cc.zone||cc.r+20;if(d2<rz*rz)cc.cnt++;if(d2<rr*rr){const d=Math.sqrt(d2)||.01,nx=dx/d,ny=dy/d,pen=rr-d;
+        cc.press+=pen;x[i]+=nx*pen;y[i]+=ny*pen;const vn=ivx*nx+ivy*ny;if(vn<0){hx-=nx*vn;hy-=ny*vn;hit=1}}}
+      let nvx=x[i]-px[i],nvy=y[i]-py[i];
+      if(hit){ // slick walls: keep the sliding motion and bounce a little off the wall
+        const tx=ivx+hx,ty=ivy+hy;nvx=tx*SLIP+hx*REST;nvy=ty*SLIP+hy*REST}const sp=nvx*nvx+nvy*nvy;if(sp>900){const k=30/Math.sqrt(sp);nvx*=k;nvy*=k}
+      vx[i]=nvx;vy[i]=nvy;
+    }
+    // gloops that touch soak up each other's impact (trampoline, not slingshot)
+    grid();
+    for(let i=0;i<n;i++){const gx=(x[i]/CS)|0,gy=((y[i]+OFF)/CS)|0;
+      for(let oy=-1;oy<=1;oy++){const cy=gy+oy;if(cy<0||cy>=GY)continue;
+        for(let ox=-1;ox<=1;ox++){const cx=gx+ox;if(cx<0||cx>=GX)continue;const c=cy*GX+cx;
+          for(let k=cellStart[c],e=cellStart[c+1];k<e;k++){const j=order[k];if(j<=i||bl[j]===bl[i]||sk[i]||sk[j])continue;
+            const dx=x[j]-x[i],dy=y[j]-y[i],d2=dx*dx+dy*dy;if(d2>=HR*HR)continue;
+            const d=Math.sqrt(d2)||.01,nx=dx/d,ny=dy/d,rv=(vx[j]-vx[i])*nx+(vy[j]-vy[i])*ny;
+            const mi=pm[i],mj=pm[j],s=CDAMP*rv/(mi+mj),wi=mj*s,wj=mi*s;
+            vx[i]+=nx*wi;vy[i]+=ny*wi;vx[j]-=nx*wj;vy[j]-=ny*wj;
+            // friction: resist sliding past each other, so small gloops can get wedged under big ones
+            const tx=-ny,ty=nx,rt=(vx[j]-vx[i])*tx+(vy[j]-vy[i])*ty,f=FRIC*rt/(mi+mj),fi=mj*f,fj=mi*f;
+            vx[i]+=tx*fi;vy[i]+=ty*fi;vx[j]-=tx*fj;vy[j]-=ty*fj}}}}
+    // damp each particle's motion relative to its blob (keeps shots fast, kills jitter)
+    for(const b of blobs.values()){b.mvx=0;b.mvy=0;b.c=0}
+    for(let i=0;i<n;i++){const b=blobs.get(bl[i]);b.mvx+=vx[i];b.mvy+=vy[i];b.c++}
+    for(const b of blobs.values()){if(b.c){b.mvx/=b.c;b.mvy/=b.c}b.ax=b.hover?0:b.mvx*AIR;b.ay=b.hover?0:b.mvy*AIR} // same gentle air drag from the moment of launch
+    for(let i=0;i<n;i++){const b=blobs.get(bl[i]);vx[i]=b.mvx+(vx[i]-b.mvx)*b.dmp-b.ax;vy[i]=b.mvy+(vy[i]-b.mvy)*b.dmp-b.ay}
+    // merged blobs shed their surplus slowly so they don't collapse inward
+    {const kill=new Set();for(const b of blobs.values()){if(!(b.extra>0))continue;
+        if(!b.shed)b.shed=Math.max(1,Math.ceil(b.extra/30));let k=Math.min(b.shed,b.extra);
+        const idx=[];for(let i=0;i<n;i++)if(bl[i]===b.id)idx.push(i);
+        while(k>0&&idx.length){const r=(Math.random()*idx.length)|0;kill.add(idx[r]);idx[r]=idx[idx.length-1];idx.pop();k--;b.extra--}}
+      if(kill.size)removeWhere(i=>kill.has(i))}
+  }
+  // pull any piece that broke away from its blob back toward the blob's main body
+  const uf=new Int32Array(MAXP),csz=new Int32Array(MAXP);
+  function find(a){while(uf[a]!==a){uf[a]=uf[uf[a]];a=uf[a]}return a}
+  function rejoin(){
+    grid();
+    for(let i=0;i<n;i++)uf[i]=i;
+    const R2=HR*HR*1.2;
+    for(let i=0;i<n;i++){const gx=(x[i]/CS)|0,gy=((y[i]+OFF)/CS)|0;
+      for(let oy=-1;oy<=1;oy++){const cy=gy+oy;if(cy<0||cy>=GY)continue;
+        for(let ox=-1;ox<=1;ox++){const cx=gx+ox;if(cx<0||cx>=GX)continue;const c=cy*GX+cx;
+          for(let k=cellStart[c],e=cellStart[c+1];k<e;k++){const j=order[k];if(j<=i||bl[j]!==bl[i])continue;
+            const dx=x[j]-x[i],dy=y[j]-y[i];if(dx*dx+dy*dy<R2){const a=find(i),b=find(j);if(a!==b)uf[a]=b}}}}}
+    csz.fill(0,0,n);for(let i=0;i<n;i++)csz[find(i)]++;
+    const main=new Map();
+    for(let i=0;i<n;i++){const r=uf[i]=find(i),m=main.get(bl[i]);if(m===undefined||csz[r]>csz[m])main.set(bl[i],r)}
+    const cen=new Map();
+    for(let i=0;i<n;i++){if(uf[i]!==main.get(bl[i]))continue;let c=cen.get(bl[i]);if(!c)cen.set(bl[i],c={x:0,y:0,n:0});c.x+=x[i];c.y+=y[i];c.n++}
+    for(let i=0;i<n;i++){if(uf[i]===main.get(bl[i]))continue;const c=cen.get(bl[i]);if(!c)continue;
+      const dx=c.x/c.n-x[i],dy=c.y/c.n-y[i],d=Math.hypot(dx,dy)||1,s=Math.min(1.2,0.15+d*0.01);
+      vx[i]+=dx/d*s;vy[i]+=dy/d*s}
+  }
+  function mergeBlobs(a,b,level,target){
+    const id=nextId++;const A=blobs.get(a),B=blobs.get(b);
+    blobs.set(id,{id,level,age:Math.min(A.age,B.age),n:0,cx:0,cy:0,top:0,vy:0});blobs.delete(a);blobs.delete(b);
+    const idx=[];for(let i=0;i<n;i++)if(bl[i]===a||bl[i]===b){bl[i]=id;idx.push(i)}
+    const nb=blobs.get(id);nb.extra=Math.max(0,idx.length-target);nb.ramp=0;nb.wob=480;
+    // a little outward pop as the two become one
+    {let mx=0,my=0;for(const i of idx){mx+=x[i];my+=y[i]}mx/=idx.length;my/=idx.length;
+      const pop=POP/(1+level*0.4);let sx=0,sy=0;
+      for(const i of idx){const dx=x[i]-mx,dy=y[i]-my,d=Math.hypot(dx,dy)||1,ux=dx/d*pop,uy=dy/d*pop;vx[i]+=ux;vy[i]+=uy;sx+=ux;sy+=uy}
+      // remove any net push so the pop never drives the gloop sideways
+      sx/=idx.length;sy/=idx.length;for(const i of idx){vx[i]-=sx;vy[i]-=sy}}
+    return id;
+  }
+  function nudge(id,ux,uy){for(let i=0;i<n;i++)if(bl[i]===id){vx[i]+=ux;vy[i]+=uy}}
+  function setVel(id,ux,uy){for(let i=0;i<n;i++)if(bl[i]===id){vx[i]=ux;vy[i]=uy}const b=blobs.get(id);if(b){b.mvx=ux;b.mvy=uy}}
+  function killBlobs(a,b){blobs.delete(a);blobs.delete(b);removeWhere(i=>bl[i]===a||bl[i]===b)}
+  // compact save/load of the whole pit (positions + which gloop each bit belongs to)
+  function exportState(){
+    const list=[...blobs.values()],ix=new Map();list.forEach((b,k)=>ix.set(b.id,k));
+    const p=new Array(n*3);for(let i=0;i<n;i++){p[3*i]=Math.round(x[i]*10);p[3*i+1]=Math.round(y[i]*10);p[3*i+2]=ix.get(bl[i])??0}
+    return {b:list.map(b=>[b.level,b.hover?1:0,Math.max(0,Math.round(b.extra||0))]),p:p.join(',')};
+  }
+  function importState(st){
+    blobs.clear();n=0;const ids=st.b.map(([level,hover,extra])=>{const id=nextId++;blobs.set(id,{id,level,hover:!!hover,extra,age:5,lock:0,ramp:1,n:0,cx:0,cy:0,top:0,vy:0});return id});
+    const p=st.p?st.p.split(',').map(Number):[];
+    for(let k=0;k+2<p.length&&n<MAXP;k+=3){x[n]=px[n]=p[k]/10;y[n]=py[n]=p[k+1]/10;vx[n]=vy[n]=0;bl[n]=ids[p[k+2]]??ids[0];n++}
+    stats();for(const [id,b] of blobs){if(!b.n)blobs.delete(id);else{b.tx=b.cx;b.ty=b.cy}}
+  }
+  return {exportState,importState,nudge,setVel,rejoin,mergeBlobs,killBlobs,step,addBlob,removeWhere,stats,blobs,merges,get n(){return n},x,y,vx,vy,bl,HR};
+}
+if(typeof module!=='undefined')module.exports={createSim};
+// ---- fluid raster: per-blob metaball field, with a clear film where two blobs meet ----
+function createRaster(W,H,COLORS,KR=13,FC=2){
+  const FW=Math.ceil(W/FC),FH=Math.ceil(H/FC),N=FW*FH;
+  const best=new Float32Array(N),sec=new Float32Array(N),own=new Int16Array(N),tmp=new Float32Array(N);
+  const out=new Uint8ClampedArray(N*4);
+  const RGB=COLORS.map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
+  const KR2=KR*KR,KC=Math.ceil(KR/FC),T=0.6,FILM=0.42;
+  function render(sim){
+    best.fill(0);sec.fill(0);
+    const {x,y,bl,blobs}=sim,n=sim.n;
+    const groups=new Map();
+    for(let i=0;i<n;i++){let g=groups.get(bl[i]);if(!g)groups.set(bl[i],g=[]);g.push(i)}
+    const lev=[];let idx=0;
+    for(const [id,g] of groups){const b=blobs.get(id);if(!b)continue;lev[idx]=b.level;
+      let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+      for(const i of g){if(x[i]<x0)x0=x[i];if(x[i]>x1)x1=x[i];if(y[i]<y0)y0=y[i];if(y[i]>y1)y1=y[i]}
+      const cx0=Math.max(0,Math.floor((x0-KR)/FC)),cx1=Math.min(FW-1,Math.ceil((x1+KR)/FC));
+      const cy0=Math.max(0,Math.floor((y0-KR)/FC)),cy1=Math.min(FH-1,Math.ceil((y1+KR)/FC));
+      if(cx0>cx1||cy0>cy1){idx++;continue}
+      for(let cy=cy0;cy<=cy1;cy++)tmp.fill(0,cy*FW+cx0,cy*FW+cx1+1);
+      for(const i of g){const gx=x[i]/FC,gy=y[i]/FC;
+        const ya=Math.max(cy0,Math.floor(gy-KC)),yb=Math.min(cy1,Math.ceil(gy+KC)),xa=Math.max(cx0,Math.floor(gx-KC)),xb=Math.min(cx1,Math.ceil(gx+KC));
+        for(let cy=ya;cy<=yb;cy++){const dy=(cy+.5)*FC-y[i],dy2=dy*dy,row=cy*FW;
+          for(let cx=xa;cx<=xb;cx++){const dx=(cx+.5)*FC-x[i],d2=dx*dx+dy2;if(d2<KR2){const t=1-d2/KR2;tmp[row+cx]+=t*t}}}}
+      for(let cy=cy0;cy<=cy1;cy++){const row=cy*FW;for(let cx=cx0;cx<=cx1;cx++){const k=row+cx,v=tmp[k];
+        if(v>best[k]){sec[k]=best[k];best[k]=v;own[k]=idx}else if(v>sec[k])sec[k]=v}}
+      idx++;
+    }
+    for(let k=0;k<N;k++){const b=best[k],o=k*4;
+      let a=(b-(T-.1))/.2;if(a<=0){out[o+3]=0;continue}if(a>1)a=1;
+      let shade=b<T+.3?.86:1;
+      const sv=sec[k];if(sv>.2){const g=(b-sv)/.75;if(g<1){const sm=g<=0?0:g*g*(3-2*g);shade*=.12+.88*sm}}
+      const c=RGB[lev[own[k]]];
+      out[o]=c[0]*shade;out[o+1]=c[1]*shade;out[o+2]=c[2]*shade;out[o+3]=a*255;
+    }
+    return out;
+  }
+  return {render,FW,FH};
+}
+(()=>{
+const W=480,H=560,L=12,R=W-12,B=H-12,CH=52,HY=74,GAP=14,S2=Math.SQRT1_2,PADY=175,PADR=30,PADMAX=9;
+const pads=[{x:L,y:PADY,r:PADR,zone:PADR+22,press:0,cnt:0,p:0},{x:R,y:PADY,r:PADR,zone:PADR+22,press:0,cnt:0,p:0}];
+const PLANES=[[1,0,L],[-1,0,-R],[0,-1,-B],[0,1,8],[S2,-S2,(L-B+CH)*S2],[-S2,-S2,(-R-B+CH)*S2]];
+// levels never run out: past 1024 the tables keep extending (2048, 4096, ... up to about a trillion)
+const LEVELS=41;
+const COUNT=[9,12,16,22,31,43,62,88,120,160,210];
+while(COUNT.length<LEVELS)COUNT.push(Math.round(COUNT[COUNT.length-1]*1.22));
+const COLORS=["#b9a9e0","#ff8fbf","#ffb36b","#f5e663","#7fe08a","#5fd8e8","#6fa0ff","#a18cff","#f28cf0","#ff7b7b","#f0c987"];
+function hsl2hex(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>Math.round(255*(l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1)))).toString(16).padStart(2,'0');return '#'+f(0)+f(8)+f(4)}
+for(let l=COLORS.length;l<LEVELS;l++)COLORS.push(hsl2hex((l-11)*47%360,82,l%2?72:66));
+const SHOWN=11,SPACING=12.8,STEP_HZ=120,MAXFLING=5;
+const val=l=>2**l;
+const label=l=>{const v=val(l);return v<100000?String(v):v<1e8?Math.round(v/1024)+'K':v<1e11?Math.round(v/1048576)+'M':Math.round(v/1073741824)+'B'};
+// seconds a freshly merged gloop waits before its next merge: starts tiny, grows 40% per step up
+const CHAIN_DELAY=Array.from({length:LEVELS},(_,l)=>l<=1?0:Math.min(2.5,0.08*1.4**(l-2)));
+const radOf=nn=>7.9*Math.sqrt(nn)+4;
+const $=id=>document.getElementById(id);
+const bg=$('bg'),fl=$('fluid'),fg=$('fg'),bctx=bg.getContext('2d'),fctx=fl.getContext('2d'),gctx=fg.getContext('2d');
+let scale=1,dpr=1,sim,score=0,best=0,over=false,paused=true,danger=0,time=0,pops=[],refill=0,pending=0,grab=null;
+try{best=+localStorage.getItem('gloop-best')||0}catch(e){}
+$('best').textContent=best;
+
+const chain=$('chain');
+for(let i=0;i<SHOWN;i++){const d=document.createElement('i');d.textContent=val(i);d.style.background=COLORS[i];chain.appendChild(d);const e=document.createElement('em');e.textContent='›';chain.appendChild(e)}
+{const e=document.createElement('em');e.textContent='∞';e.style.fontSize='1rem';chain.appendChild(e)}
+
+// floating gloops: only 1s and 2s at the start; bigger ones unlock as you build
+// unlock = the level you must reach (value 2^level). New sizes stay rare; 1s thin out once 32s unlock, 2s once you make an 8192.
+const SPAWN=[
+  {level:0,w:()=>maxLevel>=12?20:40},   // 1
+  {level:1,w:()=>maxLevel>=13?22:40},   // 2
+  {level:2,w:()=>14,unlock:5},          // 4  after a 32
+  {level:3,w:()=>9,unlock:8},           // 8  after a 256
+  {level:4,w:()=>5,unlock:11},          // 16 after a 2048
+  {level:5,w:()=>3,unlock:12}];         // 32 after a 4096
+let maxLevel=0;
+function rnd(){const opts=SPAWN.filter(o=>!o.unlock||maxLevel>=o.unlock);let r=Math.random()*opts.reduce((t,o)=>t+o.w(),0);
+  for(const o of opts){if((r-=o.w())<0)return o.level}return 0}
+function noteLevel(l,x,y){if(l<=maxLevel)return;const before=maxLevel;maxLevel=l;
+}
+function newSim(){return createSim({W,H,planes:PLANES,circles:pads,h:24,K:0.04,KN:0.18,RHO0:3,G:0.013,AIR:0.009,COH:0.001,DAMP:0.85,RSPAN:12,TETHER:0.04,SLIP:1,REST:0.15,FRIC:0.04,CDAMP:0.3,SIZEPOW:0.3})} // less sticky (was FRIC:0.3, CDAMP 0.35)
+function hovering(){return [...sim.blobs.values()].filter(b=>b.hover).sort((a,b)=>a.cx-b.cx)}
+
+// floating gloops are all drawn toward one point at the top middle; keep 3-5 of them there
+function layoutRow(dt){
+  const row=hovering();
+  for(const b of row){b.tx=W/2;b.ty=HY}
+  refill-=dt;
+  // at most 4 floating gloops; once two of them merge up there, at most 3 until that merged one is launched
+  // no count limit: a new gloop joins only if the floating row has room for it (about 60% of the pit's width)
+  if(over||refill>0)return;
+  let total=0;for(const b of row)total+=2*radOf(b.n);
+  const w=2*radOf(COUNT[pending]);
+  if(row.length&&total+w>(R-L)*0.62)return;
+  {
+    // add on the lighter side, never next to a gloop with the same number
+    let lw=0,rw=0;for(const b of row){if(b.cx<W/2)lw+=b.n;else rw+=b.n}
+    const left=row.length&&lw<rw,end=left?row[0]:row[row.length-1];
+    while(end&&pending===end.level)pending=rnd();
+    const rr=radOf(COUNT[pending]),sx=left?L+rr+4:R-rr-4;
+    // only spawn into empty space: nothing floating there and no launched gloop passing by
+    // (the settled pile never blocks spawning; only floating gloops and a shot that's still flying do)
+    for(const b of sim.blobs.values())if(b.n&&(b.hover||b.age<1.2)){const gap=b.hover?rr+radOf(b.n)*1.35+6:rr+radOf(b.n)+40;
+      if(Math.hypot(b.cx-sx,b.cy-HY)<gap){refill=.08;return}}
+    const id=sim.addBlob(sx,HY,pending,COUNT[pending],SPACING,left?3.2:-3.2,0);const nb=sim.blobs.get(id);
+    nb.hover=true;nb.tx=W/2;nb.ty=HY;nb.lock=90;nb.age=0;
+    pending=rnd();refill=.25;
+  }
+}
+function reset(){
+  for(const pd of pads){pd.p=0;pd.r=PADR}sim=newSim();pops=[];score=0;over=false;danger=0;grab=null;refill=0;maxLevel=0;pending=rnd();
+  $('score').textContent=0;$('over').hidden=true;
+  for(let i=0;i<5;i++){refill=0;sim.stats();layoutRow(0)}
+  for(let i=0;i<240;i++){sim.step();handleMerges(true);if(i%20==0){sim.stats();refill=0;layoutRow(0)}}
+  for(const b of sim.blobs.values())b.age=5;
+  drawBg();
+}
+
+// sound
+let ac=null,soundOn=false;
+$('sound').onclick=()=>{soundOn=!soundOn;$('sound').textContent='Sound: '+(soundOn?'on':'off');if(soundOn&&!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}};
+// merge sound: one blip, deeper for bigger numbers; deeper blips play louder so they stay easy to hear
+function mergeSound(level){
+  const base=Math.max(55,260*Math.pow(0.928,level-1)),f=base+100; // everything raised by 100 Hz
+  const d=Math.min(1.2,0.2*Math.pow(1.12,level-1)); // bigger numbers stretch the sound out: 25% longer to start, +12% per step
+  blip(f,d,'sine',Math.min(0.9,0.32*Math.pow(260/base,0.8)));
+}
+function blip(f,d=.12,type='sine',v=.18){if(!soundOn||!ac)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();
+  o.type=type;o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*1.8,t+d);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+d)}
+
+// input: press on a floating gloop, drag to aim (arrow shows direction and strength), release to launch
+const MAXDRAG=170;
+function toWorld(e){const r=fg.getBoundingClientRect();return{x:(e.clientX-r.left)/scale,y:(e.clientY-r.top)/scale}}
+function hoverAt(p){let pick=null,bd=1e9;for(const b of sim.blobs.values()){if(!b.hover)continue;const d=Math.hypot(p.x-b.cx,p.y-b.cy);if(d<radOf(b.n)+8&&d<bd){bd=d;pick=b}}return pick}
+fg.addEventListener('pointerdown',e=>{
+  if(over||paused)return;const p=toWorld(e),b=hoverAt(p);if(!b)return;
+  grab={id:b.id,sx:p.x,sy:p.y,dx:0,dy:0};
+  try{fg.setPointerCapture(e.pointerId)}catch(_){}
+  e.preventDefault();
+});
+fg.addEventListener('pointermove',e=>{
+  const p=toWorld(e);
+  if(!grab){fg.style.cursor=!over&&hoverAt(p)?'pointer':'default';return}
+  let dx=p.x-grab.sx,dy=p.y-grab.sy;const m=Math.hypot(dx,dy);if(m>MAXDRAG){dx*=MAXDRAG/m;dy*=MAXDRAG/m}
+  grab.dx=dx;grab.dy=dy;
+});
+function release(){
+  if(!grab)return;const b=sim.blobs.get(grab.id),m=Math.hypot(grab.dx,grab.dy);
+  if(b&&b.hover&&m>14){const k=MAXFLING/MAXDRAG;b.hover=false;b.age=0;b.slick=Math.round(0.45*STEP_HZ);sim.setVel(b.id,grab.dx*k,grab.dy*k);refill=Math.max(refill,.3);blip(320+m*2,.1,'triangle',.05);}
+  grab=null;
+}
+fg.addEventListener('pointerup',release);fg.addEventListener('pointercancel',release);
+$('again').onclick=()=>{reset();paused=false};
+
+function handleMerges(quiet){
+  const m=sim.merges;if(!m.length)return;
+  const done=new Set();
+  for(let k=0;k<m.length;k+=2){const a=m[k],b=m[k+1];if(done.has(a)||done.has(b))continue;
+    const A=sim.blobs.get(a),Bb=sim.blobs.get(b);if(!A||!Bb||A.level!==Bb.level||A.lock>0||Bb.lock>0)continue;
+    done.add(a);done.add(b);
+    const lv=A.level,x=(A.cx*A.n+Bb.cx*Bb.n)/(A.n+Bb.n),y=(A.cy*A.n+Bb.cy*Bb.n)/(A.n+Bb.n);
+    const hover=A.hover||Bb.hover;if(grab&&(grab.id===a||grab.id===b))grab=null;
+    {const id=sim.mergeBlobs(a,b,lv+1,COUNT[lv+1]);if(!quiet)noteLevel(lv+1);const nb=sim.blobs.get(id);
+      nb.hover=hover;nb.merged=hover;nb.tx=W/2;nb.ty=HY;
+      // a freshly merged gloop waits a beat before it can merge again; bigger numbers wait longer
+      nb.lock=Math.round(CHAIN_DELAY[lv+1]*STEP_HZ);
+      if(!quiet){addScore(val(lv+1),x,y);mergeSound(lv+1);
+        // gently bump the neighbours
+        const reach=radOf(COUNT[lv+1])+50;
+        for(const o of sim.blobs.values()){if(o.id===id)continue;const dx=o.cx-x,dy=o.cy-y,d=Math.hypot(dx,dy);
+          if(d>1&&d<reach){const k=Math.min(0.25,0.4*(1-d/reach)*Math.min(1,COUNT[lv+1]/o.n)/(1+lv*0.3));sim.nudge(o.id,dx/d*k,dy/d*k)}}}}
+  }
+  m.length=0;
+}
+function addScore(p,x,y){score+=p;$('score').textContent=score;pops.push({x,y,t:0,txt:'+'+p})}
+
+// drawing
+function pitPath(c){c.beginPath();c.moveTo(L,10);c.lineTo(L,B-CH);c.lineTo(L+CH,B);c.lineTo(R-CH,B);c.lineTo(R,B-CH);c.lineTo(R,10)}
+function drawBg(){
+  const c=bctx;c.setTransform(scale*dpr,0,0,scale*dpr,0,0);c.clearRect(0,0,W,H);
+  c.fillStyle='#0f1219';c.beginPath();c.roundRect?c.roundRect(0,0,W,H,22):c.rect(0,0,W,H);c.fill();
+  pitPath(c);c.closePath();c.fillStyle='#07080d';c.fill();
+  pitPath(c);c.strokeStyle='#262b3a';c.lineWidth=5;c.lineJoin='round';c.stroke();
+}
+const RAS=createRaster(W,H,COLORS,21,2);
+const off=document.createElement('canvas');off.width=RAS.FW;off.height=RAS.FH;const octx=off.getContext('2d');const oimg=octx.createImageData(RAS.FW,RAS.FH);
+function drawFluid(){
+  const c=fctx;c.setTransform(scale*dpr,0,0,scale*dpr,0,0);c.clearRect(0,0,W,H);
+  // a soft glow under each floating gloop
+  for(const b of sim.blobs.values()){if(!b.hover)continue;const r=radOf(b.n);
+    const g=c.createRadialGradient(b.cx,b.cy+r*.9,2,b.cx,b.cy+r*.9,r*.9);g.addColorStop(0,'rgba(255,216,107,.22)');g.addColorStop(1,'rgba(255,216,107,0)');
+    c.fillStyle=g;c.beginPath();c.ellipse(b.cx,b.cy+r*.9,r*.9,r*.3,0,0,7);c.fill()}
+  oimg.data.set(RAS.render(sim));octx.putImageData(oimg,0,0);
+  c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.drawImage(off,0,0,RAS.FW*2,RAS.FH*2);
+  c.fillStyle='rgba(255,255,255,.26)';c.beginPath();
+  for(const b of sim.blobs.values()){const rr=Math.sqrt(b.n)*3.4;c.moveTo(b.cx-rr*.4+rr*.32,b.cy-rr*.45);c.ellipse(b.cx-rr*.4,b.cy-rr*.45,rr*.32,rr*.17,-.5,0,6.2832)}
+  c.fill();
+}
+function drawFg(){
+  const c=gctx;c.setTransform(scale*dpr,0,0,scale*dpr,0,0);c.clearRect(0,0,W,H);
+  for(const pd of pads){const p=Math.min(1,pd.p),side=pd.x<W/2?1:-1,full=p>=1;
+    // wall plate
+    c.fillStyle='#262b3a';c.beginPath();c.roundRect?c.roundRect(pd.x-side*4-3,pd.y-PADR*1.45,6,PADR*2.9,3):c.rect(pd.x-3,pd.y-PADR*1.45,6,PADR*2.9);c.fill();
+    // the bubble flattens as it's pushed in and goes red at max
+    const rx=pd.r,ry=PADR*(1+0.25*p),hue=250-250*p,light=full?70+8*Math.sin(time*14):78;
+    c.fillStyle=full?`hsl(354,95%,${light}%)`:`hsl(${hue<0?0:hue},${35+50*p}%,${light}%)`;
+    c.strokeStyle='rgba(14,16,26,.75)';c.lineWidth=3;
+    c.beginPath();c.ellipse(pd.x,pd.y,rx,ry,0,side>0?-Math.PI/2:Math.PI/2,side>0?Math.PI/2:Math.PI*1.5);c.closePath();c.fill();c.stroke();
+    c.fillStyle='rgba(255,255,255,.35)';c.beginPath();c.ellipse(pd.x+side*rx*.35,pd.y-ry*.45,rx*.18,ry*.14,0,0,7);c.fill();
+    c.fillStyle='#0e101a';c.beginPath();c.arc(pd.x,pd.y,3,0,7);c.fill()}
+  if(grab){const b=sim.blobs.get(grab.id);const m=Math.hypot(grab.dx,grab.dy);
+    if(b&&m>4){const ux=grab.dx/m,uy=grab.dy/m,r=radOf(b.n)*.6,x0=b.cx+ux*r,y0=b.cy+uy*r,len=24+m*.9,x1=x0+ux*len,y1=y0+uy*len,t=m/MAXDRAG;
+      const col=`hsl(${48-t*48},100%,${70-t*8}%)`;
+      c.lineCap='round';c.strokeStyle='rgba(14,16,26,.7)';c.lineWidth=12;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1-ux*10,y1-uy*10);c.stroke();
+      c.strokeStyle=col;c.lineWidth=7;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1-ux*10,y1-uy*10);c.stroke();
+      c.fillStyle=col;c.strokeStyle='rgba(14,16,26,.7)';c.lineWidth=3;c.beginPath();c.moveTo(x1+ux*6,y1+uy*6);c.lineTo(x1-ux*14-uy*12,y1-uy*14+ux*12);c.lineTo(x1-ux*14+uy*12,y1-uy*14-ux*12);c.closePath();c.stroke();c.fill()}}
+  c.textAlign='center';c.textBaseline='middle';c.lineJoin='round';
+  for(const b of sim.blobs.values()){const fs=Math.min(54,12+Math.sqrt(b.n)*2.1);
+    c.font=`${fs}px "Bagel Fat One", sans-serif`;c.lineWidth=fs*.22;c.strokeStyle='rgba(14,16,26,.85)';c.fillStyle='#fff';
+    const t=label(b.level);c.strokeText(t,b.cx,b.cy+1);c.fillText(t,b.cx,b.cy+1)}
+  c.font='20px "Bagel Fat One", sans-serif';
+  for(const p of pops){const t=Math.max(0,p.t),yy=p.y-t*40;c.globalAlpha=Math.min(1,Math.max(0,1-t));
+    c.font=p.big?'32px "Bagel Fat One", sans-serif':'20px "Bagel Fat One", sans-serif';c.lineWidth=p.big?6:4;
+    c.fillStyle='#ffe6a3';c.strokeStyle='#0e101a';c.strokeText(p.txt,p.x,yy);c.fillText(p.txt,p.x,yy)}
+  c.globalAlpha=1;
+}
+
+// loop
+let last=performance.now(),acc=0,stepN=0;
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;time+=dt;
+  if(!over&&!paused){
+    sim.stats();layoutRow(dt);
+    for(const pd of pads){pd.cnt=0;pd.press=0}
+    acc+=dt*STEP_HZ;let steps=0;while(acc>=1&&steps<5){sim.step();if(++stepN%3===0)sim.rejoin();handleMerges(false);acc--;steps++}if(acc>5)acc=0;
+    for(const b of sim.blobs.values())b.age+=dt;
+    // pressure pads: how much goo is pressing in; both maxed at once ends the game
+    for(const pd of pads){const raw=steps?Math.min(1.15,pd.cnt/steps/PADMAX):pd.p;pd.p+=(raw-pd.p)*Math.min(1,dt*2.5);if(pd.p<0)pd.p=0;pd.r=PADR*(1-0.4*Math.min(1,pd.p))}
+    const maxed=pads.every(pd=>pd.p>=1);danger=maxed?danger+dt:0;
+    if(danger>0.4)gameOver();
+  }
+  for(const p of pops)p.t+=dt*1.2;pops=pops.filter(p=>p.t<1);
+  drawFluid();drawFg();requestAnimationFrame(frame);
+}
+function gameOver(){
+  over=true;grab=null;blip(260,.5,'sawtooth',.12);
+  if(score>best){best=score;try{localStorage.setItem('gloop-best',best)}catch(e){}}
+  clearSave();
+  $('best').textContent=best;$('final').textContent=score;
+  $('bestline').textContent=score>=best&&score>0?'New best!':'Best: '+best;
+  $('over').hidden=false;$('again').focus();
+}
+function fit(){
+  const st=$('stage').getBoundingClientRect();
+  scale=Math.max(.3,Math.min(st.width/W,st.height/H));dpr=Math.min(2,window.devicePixelRatio||1);
+  const pit=$('pit');pit.style.width=W*scale+'px';pit.style.height=H*scale+'px';
+  for(const cv of [bg,fl,fg]){cv.style.width=W*scale+'px';cv.style.height=H*scale+'px';cv.width=Math.round(W*scale*dpr);cv.height=Math.round(H*scale*dpr)}
+  if(sim)drawBg();
+}
+window.addEventListener('resize',fit);
+// ---------- saving: your own private save in your Claude account, with this browser as a backup ----------
+let store=null,saveDoc=null,saved=null,saving=false,lastSave=0,newArmed=false;
+const fmt=v=>Number(v).toLocaleString();
+function snapshot(){return {v:2,t:Date.now(),score,best,pending,maxLevel,sim:sim.exportState()}}
+function localGet(){try{const r=localStorage.getItem('gloop-save');return r?JSON.parse(r):null}catch(e){return null}}
+function localSet(o){try{o?localStorage.setItem('gloop-save',JSON.stringify(o)):localStorage.removeItem('gloop-save')}catch(e){}}
+async function saveNow(){
+  if(over||saving)return true;saving=true;const snap=snapshot();lastSave=performance.now();
+  localSet(snap);let ok=true;
+  if(saveDoc){try{await saveDoc.set({save:JSON.stringify(snap),best,t:snap.t})}catch(e){ok=false}}
+  saved=snap;saving=false;return ok;
+}
+async function clearSave(){
+  saved=null;localSet(null);
+  if(saveDoc){try{await saveDoc.set({save:null,best,t:Date.now()})}catch(e){}}
+}
+function showHome(msg){
+  paused=true;grab=null;$('over').hidden=true;$('home').hidden=false;newArmed=false;
+  $('newgame').textContent='Start new game';$('newgame').classList.remove('second');
+  $('homebest').textContent=fmt(best);$('best').textContent=fmt(best);
+  if(saved&&saved.sim){$('resume').hidden=false;$('resume').textContent='Resume game · '+fmt(saved.score);$('newgame').classList.add('second')}
+  else $('resume').hidden=true;
+  $('homenote').textContent=msg||'';
+  ($('resume').hidden?$('newgame'):$('resume')).focus();
+}
+function startGame(){$('home').hidden=true;$('over').hidden=true;paused=false;lastSave=performance.now()}
+$('resume').onclick=()=>{
+  if(!saved||!saved.sim)return;
+  for(const pd of pads){pd.p=0;pd.r=PADR}
+  if((saved.v||1)<2){for(const b of saved.sim.b)b[0]+=1;if(saved.maxLevel!=null)saved.maxLevel+=1;if(saved.pending!=null)saved.pending+=1;saved.v=2}
+  sim=newSim();sim.importState(saved.sim);score=saved.score||0;
+  maxLevel=saved.maxLevel??Math.max(0,...saved.sim.b.map(b=>b[0]));pending=saved.pending??rnd();
+  over=false;danger=0;pops=[];refill=0;grab=null;$('score').textContent=fmt(score);drawBg();startGame();
+};
+$('newgame').onclick=()=>{
+  if(saved&&saved.sim&&!newArmed){newArmed=true;$('newgame').textContent='Tap again to replace your saved game';return}
+  reset();startGame();
+};
+$('saveexit').onclick=async()=>{
+  if(paused||over)return;paused=true;$('saveexit').disabled=true;$('saveexit').textContent='Saving…';
+  const ok=await saveNow();$('saveexit').disabled=false;$('saveexit').textContent='Save & exit';
+  showHome(ok?'Saved. Pick up right where you left off.':'Saved in this browser only; your account could not be reached.');
+};
+$('tohome').onclick=()=>showHome();
+// autosave while playing, and when the tab is hidden
+setInterval(()=>{if(!paused&&!over&&performance.now()-lastSave>30000)saveNow()},5000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&!paused&&!over)saveNow()});
+async function loadSaves(){
+  saved=localGet();if(saved&&saved.best>best)best=saved.best;
+  showHome(window.claude?'Checking for your saved game…':'');
+  let db=null,user=null;
+  try{[db,user]=await Promise.all([window.claude?.use?.('db')??null,window.claude?.use?.('user')??null])}catch(e){}
+  if(db&&user){try{const id=await user.id();if(id){saveDoc=db.doc('data/users/'+id+'/gloop');
+    const snap=await saveDoc.get();const d=snap.exists?snap.data():null;
+    if(d){if((d.best||0)>best)best=d.best;
+      const remote=d.save?JSON.parse(d.save):null;
+      if(remote&&(!saved||remote.t>=saved.t))saved=remote;
+      if(!remote&&d.t&&saved&&d.t>saved.t)saved=null}}}catch(e){saveDoc=null}}
+  try{if(best>(+localStorage.getItem('gloop-best')||0))localStorage.setItem('gloop-best',best)}catch(e){}
+  if(paused)showHome(saveDoc?'':(saved?'':'Your game will save in this browser.'));
+}
+fit();reset();requestAnimationFrame(frame);loadSaves();
+})();
+</script>
+
+</body>
+</html>
