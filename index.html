@@ -24,20 +24,28 @@
 /* Layout: one-screen arcade cabinet — slim header bar, the pit centered and scaled to fit, number chain below. */
 :root{
   --bg:#05060a;--pit:#0b0d14;--pit-edge:#262b3a;--ink:#eef0f7;--muted:#9097ad;--accent:#ffe6a3;--danger:#ff9aa2;--btn:#141824;--btn-hover:#1c2131;
+  --glow1:#0e1424;--glow2:#0c1020;--card:rgba(8,9,14,.94);--card-btn-ink:#16181f;--card-btn-edge:#e9cf86;--title-shadow:#3a4160;--veil:rgba(5,6,10,.55);
   --display:"Bagel Fat One","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif;
   --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:dark;
 }
+/* the original plum look, switchable from the Colors button */
+:root[data-look="original"]{
+  --bg:#1d1226;--pit:#24162f;--pit-edge:#4a3160;--ink:#f6eefc;--muted:#b9a6c9;--accent:#ffd86b;--danger:#ff6b7f;--btn:#3a2550;--btn-hover:#47305f;
+  --glow1:#2f1d40;--glow2:#2a1538;--card:rgba(29,18,38,.92);--card-btn-ink:#2a1238;--card-btn-edge:#e0b43d;--title-shadow:#8a4fb0;--veil:rgba(29,18,38,.55);
+}
 html,body{height:100%}
+.credit{text-align:center;color:var(--muted);opacity:.55;font-size:.66rem;margin:0}
 [hidden]{display:none!important}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;overflow:hidden;box-sizing:border-box;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
-  background-image:radial-gradient(circle at 20% 10%,#0e1424 0,transparent 45%),radial-gradient(circle at 85% 90%,#0c1020 0,transparent 40%)}
+  background-image:radial-gradient(circle at 20% 10%,var(--glow1) 0,transparent 45%),radial-gradient(circle at 85% 90%,var(--glow2) 0,transparent 40%)}
 .app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:12px;box-sizing:border-box;max-width:640px;margin:0 auto}
 header{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"title stats btns";align-items:center;gap:8px 12px}
 header h1{grid-area:title}
-@media (max-width:560px){header{grid-template-columns:1fr auto;grid-template-areas:"title btns" "stats stats"}header .stats{justify-content:flex-start;margin-left:0}header .stat{align-items:flex-start}}
-h1{font-family:var(--display);font-weight:400;font-size:1.7rem;margin:0;line-height:1;color:var(--accent);text-shadow:0 3px 0 #3a4160}
+@media (max-width:560px){header{grid-template-columns:1fr auto;grid-template-areas:"title stats" "btns btns"}header .btns{justify-content:flex-start;flex-wrap:wrap}}
+header h1,header button{white-space:nowrap}
+h1{font-family:var(--display);font-weight:400;font-size:1.7rem;margin:0;line-height:1;color:var(--accent);text-shadow:0 3px 0 var(--title-shadow)}
 .stats{grid-area:stats;display:flex;gap:18px;justify-content:flex-end;align-items:center;min-width:0}
 .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05}
 .stat span{font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
@@ -52,25 +60,21 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .pit{position:relative}
 .pit canvas{position:absolute;inset:0;display:block}
 #fg{touch-action:none}
-.chain{display:flex;align-items:center;justify-content:center;gap:3px;flex-wrap:wrap}
-.chain i{display:flex;align-items:center;justify-content:center;border-radius:50%;font-style:normal;font-family:var(--display);color:#16181f;font-size:.62rem;height:24px;min-width:24px;padding:0 3px;box-sizing:border-box}
-.chain em{color:var(--muted);font-style:normal;font-size:.7rem}
-.hint.credit{opacity:.6;font-size:.7rem}
 .hint{text-align:center;color:var(--muted);font-size:.78rem;margin:0}
 .over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
-.card{background:rgba(8,9,14,.94);border:2px solid var(--pit-edge);border-radius:24px;padding:22px 28px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.card{background:var(--card);border:2px solid var(--pit-edge);border-radius:24px;padding:22px 28px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
 .card h2{font-family:var(--display);font-weight:400;font-size:2rem;margin:0;color:var(--danger)}
 .card p{margin:0;color:var(--muted)}
 .card .big{font-family:var(--display);font-size:2.6rem;color:var(--ink);font-variant-numeric:tabular-nums}
-.card button{font-size:1rem;padding:10px 22px;background:var(--accent);color:#16181f;border-color:#e9cf86}
+.card button{font-size:1rem;padding:10px 22px;background:var(--accent);color:var(--card-btn-ink);border-color:var(--card-btn-edge)}
 .card button.ghost,.card #newgame.second{background:var(--btn);color:var(--ink);border-color:var(--pit-edge)}
 .card .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .card .col{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:220px;margin-top:6px}
 .card .col button{width:100%}
 .card .note{font-size:.8rem;min-height:1.2em;max-width:260px}
-.card .hometitle{color:var(--accent);text-shadow:0 3px 0 #3a4160;font-size:2.4rem}
-.home{background:rgba(5,6,10,.55)}
-@media (max-width:420px){h1{font-size:1.35rem}.stat b{font-size:1.1rem}.chain i{height:20px;min-width:20px;font-size:.55rem}}
+.card .hometitle{color:var(--accent);text-shadow:0 3px 0 var(--title-shadow);font-size:2.4rem}
+.home{background:var(--veil)}
+@media (max-width:420px){h1{font-size:1.35rem}.stat b{font-size:1.1rem}}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -88,6 +92,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
       <div class="stat"><span>Best</span><b id="best">0</b></div>
     </div>
     <div class="btns">
+      <button id="look" type="button">Colors: Midnight</button>
       <button id="sound" type="button">Sound: off</button>
       <button id="saveexit" type="button">Save &amp; exit</button>
     </div>
@@ -120,9 +125,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
       </div>
     </div>
   </div>
-  <div class="chain" id="chain"></div>
-  <p class="hint">Your game saves itself every half minute; Save &amp; exit saves right away. Press on a floating gloop and drag to aim; the arrow shows direction and power. Let go to launch. Matching numbers merge, and a launched gloop that merges with a floating one keeps floating. If the goo pushes both side pads in to the max at the same time, it's game over.</p>
-<p class="hint credit">Inspired by sobosuba. Not affiliated with sobosuba or its developer.</p>
+  <p class="credit">Inspired by sobosuba. Not affiliated with sobosuba or its developer.</p>
 </div>
 
 <script>
@@ -284,7 +287,7 @@ function createRaster(W,H,COLORS,KR=13,FC=2){
   const FW=Math.ceil(W/FC),FH=Math.ceil(H/FC),N=FW*FH;
   const best=new Float32Array(N),sec=new Float32Array(N),own=new Int16Array(N),tmp=new Float32Array(N);
   const out=new Uint8ClampedArray(N*4);
-  const RGB=COLORS.map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)]);
+  let RGB=[];function setColors(cs){RGB=cs.map(h=>[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)])}setColors(COLORS);
   const KR2=KR*KR,KC=Math.ceil(KR/FC),T=0.6,FILM=0.42;
   function render(sim){
     best.fill(0);sec.fill(0);
@@ -316,7 +319,7 @@ function createRaster(W,H,COLORS,KR=13,FC=2){
     }
     return out;
   }
-  return {render,FW,FH};
+  return {render,setColors,FW,FH};
 }
 (()=>{
 const W=480,H=560,L=12,R=W-12,B=H-12,CH=52,HY=74,GAP=14,S2=Math.SQRT1_2,PADY=175,PADR=30,PADMAX=9;
@@ -326,9 +329,17 @@ const PLANES=[[1,0,L],[-1,0,-R],[0,-1,-B],[0,1,8],[S2,-S2,(L-B+CH)*S2],[-S2,-S2,
 const LEVELS=41;
 const COUNT=[9,12,16,22,31,43,62,88,120,160,210];
 while(COUNT.length<LEVELS)COUNT.push(Math.round(COUNT[COUNT.length-1]*1.22));
-const COLORS=["#b9a9e0","#ff8fbf","#ffb36b","#f5e663","#7fe08a","#5fd8e8","#6fa0ff","#a18cff","#f28cf0","#ff7b7b","#f0c987"];
+const LOOKS={
+  midnight:{name:'Midnight',gloops:["#b9a9e0","#ff8fbf","#ffb36b","#f5e663","#7fe08a","#5fd8e8","#6fa0ff","#a18cff","#f28cf0","#ff7b7b","#f0c987"],more:[82,72,66],
+    frame:'#0f1219',floor:'#07080d',edge:'#262b3a',line:'14,16,26',dot:'#0e101a',score:'#ffe6a3',glow:'255,230,163',padHue:250,padLight:78,padSat:[35,50],padMax:[95,70]},
+  original:{name:'Original',gloops:["#c7bedb","#ff8fb0","#ffa86b","#ffe066","#9fe36b","#56d6c2","#6bb4ff","#9c8cff","#e07bff","#ff6b6b","#fff4d6"],more:[85,70,62],
+    frame:'#2a1a36',floor:'#22142c',edge:'#4a3160',line:'42,15,51',dot:'#2a0f33',score:'#ffd86b',glow:'255,216,107',padHue:270,padLight:62,padSat:[30,60],padMax:[100,58]}};
+let LOOK=LOOKS.midnight;
+const COLORS=[];
+function fillColors(){COLORS.length=0;for(const c of LOOK.gloops)COLORS.push(c);
+  for(let l=COLORS.length;l<LEVELS;l++)COLORS.push(hsl2hex((l-11)*47%360,LOOK.more[0],l%2?LOOK.more[1]:LOOK.more[2]))}
 function hsl2hex(h,s,l){s/=100;l/=100;const k=n=>(n+h/30)%12,a=s*Math.min(l,1-l),f=n=>Math.round(255*(l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1)))).toString(16).padStart(2,'0');return '#'+f(0)+f(8)+f(4)}
-for(let l=COLORS.length;l<LEVELS;l++)COLORS.push(hsl2hex((l-11)*47%360,82,l%2?72:66));
+fillColors();
 const SHOWN=11,SPACING=12.8,STEP_HZ=120,MAXFLING=5;
 const val=l=>2**l;
 const label=l=>{const v=val(l);return v<100000?String(v):v<1e8?Math.round(v/1024)+'K':v<1e11?Math.round(v/1048576)+'M':Math.round(v/1073741824)+'B'};
@@ -341,9 +352,6 @@ let scale=1,dpr=1,sim,score=0,best=0,over=false,paused=true,danger=0,time=0,pops
 try{best=+localStorage.getItem('gloop-best')||0}catch(e){}
 $('best').textContent=best;
 
-const chain=$('chain');
-for(let i=0;i<SHOWN;i++){const d=document.createElement('i');d.textContent=val(i);d.style.background=COLORS[i];chain.appendChild(d);const e=document.createElement('em');e.textContent='›';chain.appendChild(e)}
-{const e=document.createElement('em');e.textContent='∞';e.style.fontSize='1rem';chain.appendChild(e)}
 
 // floating gloops: only 1s and 2s at the start; bigger ones unlock as you build
 // unlock = the level you must reach (value 2^level). New sizes stay rare; 1s thin out once 32s unlock, 2s once you make an 8192.
@@ -459,17 +467,26 @@ function addScore(p,x,y){score+=p;$('score').textContent=score;pops.push({x,y,t:
 function pitPath(c){c.beginPath();c.moveTo(L,10);c.lineTo(L,B-CH);c.lineTo(L+CH,B);c.lineTo(R-CH,B);c.lineTo(R,B-CH);c.lineTo(R,10)}
 function drawBg(){
   const c=bctx;c.setTransform(scale*dpr,0,0,scale*dpr,0,0);c.clearRect(0,0,W,H);
-  c.fillStyle='#0f1219';c.beginPath();c.roundRect?c.roundRect(0,0,W,H,22):c.rect(0,0,W,H);c.fill();
-  pitPath(c);c.closePath();c.fillStyle='#07080d';c.fill();
-  pitPath(c);c.strokeStyle='#262b3a';c.lineWidth=5;c.lineJoin='round';c.stroke();
+  c.fillStyle=LOOK.frame;c.beginPath();c.roundRect?c.roundRect(0,0,W,H,22):c.rect(0,0,W,H);c.fill();
+  pitPath(c);c.closePath();c.fillStyle=LOOK.floor;c.fill();
+  pitPath(c);c.strokeStyle=LOOK.edge;c.lineWidth=5;c.lineJoin='round';c.stroke();
 }
 const RAS=createRaster(W,H,COLORS,21,2);
+function applyLook(key,save){
+  LOOK=LOOKS[key]||LOOKS.midnight;fillColors();RAS.setColors(COLORS);
+  document.documentElement.setAttribute('data-look',key==='original'?'original':'midnight');
+  $('look').textContent='Colors: '+LOOK.name;
+  if(save){try{localStorage.setItem('gloop-look',key)}catch(e){}}
+  if(sim)drawBg();
+}
+$('look').onclick=()=>applyLook(LOOK===LOOKS.midnight?'original':'midnight',true);
+{let k='midnight';try{k=localStorage.getItem('gloop-look')||k}catch(e){}applyLook(k,false)}
 const off=document.createElement('canvas');off.width=RAS.FW;off.height=RAS.FH;const octx=off.getContext('2d');const oimg=octx.createImageData(RAS.FW,RAS.FH);
 function drawFluid(){
   const c=fctx;c.setTransform(scale*dpr,0,0,scale*dpr,0,0);c.clearRect(0,0,W,H);
   // a soft glow under each floating gloop
   for(const b of sim.blobs.values()){if(!b.hover)continue;const r=radOf(b.n);
-    const g=c.createRadialGradient(b.cx,b.cy+r*.9,2,b.cx,b.cy+r*.9,r*.9);g.addColorStop(0,'rgba(255,216,107,.22)');g.addColorStop(1,'rgba(255,216,107,0)');
+    const g=c.createRadialGradient(b.cx,b.cy+r*.9,2,b.cx,b.cy+r*.9,r*.9);g.addColorStop(0,`rgba(${LOOK.glow},.22)`);g.addColorStop(1,`rgba(${LOOK.glow},0)`);
     c.fillStyle=g;c.beginPath();c.ellipse(b.cx,b.cy+r*.9,r*.9,r*.3,0,0,7);c.fill()}
   oimg.data.set(RAS.render(sim));octx.putImageData(oimg,0,0);
   c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.drawImage(off,0,0,RAS.FW*2,RAS.FH*2);
@@ -481,28 +498,28 @@ function drawFg(){
   const c=gctx;c.setTransform(scale*dpr,0,0,scale*dpr,0,0);c.clearRect(0,0,W,H);
   for(const pd of pads){const p=Math.min(1,pd.p),side=pd.x<W/2?1:-1,full=p>=1;
     // wall plate
-    c.fillStyle='#262b3a';c.beginPath();c.roundRect?c.roundRect(pd.x-side*4-3,pd.y-PADR*1.45,6,PADR*2.9,3):c.rect(pd.x-3,pd.y-PADR*1.45,6,PADR*2.9);c.fill();
+    c.fillStyle=LOOK.edge;c.beginPath();c.roundRect?c.roundRect(pd.x-side*4-3,pd.y-PADR*1.45,6,PADR*2.9,3):c.rect(pd.x-3,pd.y-PADR*1.45,6,PADR*2.9);c.fill();
     // the bubble flattens as it's pushed in and goes red at max
-    const rx=pd.r,ry=PADR*(1+0.25*p),hue=250-250*p,light=full?70+8*Math.sin(time*14):78;
-    c.fillStyle=full?`hsl(354,95%,${light}%)`:`hsl(${hue<0?0:hue},${35+50*p}%,${light}%)`;
-    c.strokeStyle='rgba(14,16,26,.75)';c.lineWidth=3;
+    const rx=pd.r,ry=PADR*(1+0.25*p),hue=LOOK.padHue*(1-p),light=full?LOOK.padMax[1]+8*Math.sin(time*14):LOOK.padLight;
+    c.fillStyle=full?`hsl(354,${LOOK.padMax[0]}%,${light}%)`:`hsl(${hue<0?0:hue},${LOOK.padSat[0]+LOOK.padSat[1]*p}%,${light}%)`;
+    c.strokeStyle=`rgba(${LOOK.line},.75)`;c.lineWidth=3;
     c.beginPath();c.ellipse(pd.x,pd.y,rx,ry,0,side>0?-Math.PI/2:Math.PI/2,side>0?Math.PI/2:Math.PI*1.5);c.closePath();c.fill();c.stroke();
     c.fillStyle='rgba(255,255,255,.35)';c.beginPath();c.ellipse(pd.x+side*rx*.35,pd.y-ry*.45,rx*.18,ry*.14,0,0,7);c.fill();
-    c.fillStyle='#0e101a';c.beginPath();c.arc(pd.x,pd.y,3,0,7);c.fill()}
+    c.fillStyle=LOOK.dot;c.beginPath();c.arc(pd.x,pd.y,3,0,7);c.fill()}
   if(grab){const b=sim.blobs.get(grab.id);const m=Math.hypot(grab.dx,grab.dy);
     if(b&&m>4){const ux=grab.dx/m,uy=grab.dy/m,r=radOf(b.n)*.6,x0=b.cx+ux*r,y0=b.cy+uy*r,len=24+m*.9,x1=x0+ux*len,y1=y0+uy*len,t=m/MAXDRAG;
       const col=`hsl(${48-t*48},100%,${70-t*8}%)`;
-      c.lineCap='round';c.strokeStyle='rgba(14,16,26,.7)';c.lineWidth=12;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1-ux*10,y1-uy*10);c.stroke();
+      c.lineCap='round';c.strokeStyle=`rgba(${LOOK.line},.7)`;c.lineWidth=12;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1-ux*10,y1-uy*10);c.stroke();
       c.strokeStyle=col;c.lineWidth=7;c.beginPath();c.moveTo(x0,y0);c.lineTo(x1-ux*10,y1-uy*10);c.stroke();
-      c.fillStyle=col;c.strokeStyle='rgba(14,16,26,.7)';c.lineWidth=3;c.beginPath();c.moveTo(x1+ux*6,y1+uy*6);c.lineTo(x1-ux*14-uy*12,y1-uy*14+ux*12);c.lineTo(x1-ux*14+uy*12,y1-uy*14-ux*12);c.closePath();c.stroke();c.fill()}}
+      c.fillStyle=col;c.strokeStyle=`rgba(${LOOK.line},.7)`;c.lineWidth=3;c.beginPath();c.moveTo(x1+ux*6,y1+uy*6);c.lineTo(x1-ux*14-uy*12,y1-uy*14+ux*12);c.lineTo(x1-ux*14+uy*12,y1-uy*14-ux*12);c.closePath();c.stroke();c.fill()}}
   c.textAlign='center';c.textBaseline='middle';c.lineJoin='round';
   for(const b of sim.blobs.values()){const fs=Math.min(54,12+Math.sqrt(b.n)*2.1);
-    c.font=`${fs}px "Bagel Fat One", sans-serif`;c.lineWidth=fs*.22;c.strokeStyle='rgba(14,16,26,.85)';c.fillStyle='#fff';
+    c.font=`${fs}px "Bagel Fat One", sans-serif`;c.lineWidth=fs*.22;c.strokeStyle=`rgba(${LOOK.line},.85)`;c.fillStyle='#fff';
     const t=label(b.level);c.strokeText(t,b.cx,b.cy+1);c.fillText(t,b.cx,b.cy+1)}
   c.font='20px "Bagel Fat One", sans-serif';
   for(const p of pops){const t=Math.max(0,p.t),yy=p.y-t*40;c.globalAlpha=Math.min(1,Math.max(0,1-t));
     c.font=p.big?'32px "Bagel Fat One", sans-serif':'20px "Bagel Fat One", sans-serif';c.lineWidth=p.big?6:4;
-    c.fillStyle='#ffe6a3';c.strokeStyle='#0e101a';c.strokeText(p.txt,p.x,yy);c.fillText(p.txt,p.x,yy)}
+    c.fillStyle=LOOK.score;c.strokeStyle=LOOK.dot;c.strokeText(p.txt,p.x,yy);c.fillText(p.txt,p.x,yy)}
   c.globalAlpha=1;
 }
 
