@@ -45,6 +45,7 @@ header{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"tit
 header h1{grid-area:title}
 @media (max-width:560px){header{grid-template-columns:1fr auto;grid-template-areas:"title stats" "btns btns"}header .btns{justify-content:flex-start;flex-wrap:wrap}}
 header h1,header button{white-space:nowrap}
+@media (max-width:440px){.btns{gap:5px}.btns button{font-size:.72rem;padding:5px 9px}.lk{display:none}}
 h1{font-family:var(--display);font-weight:400;font-size:1.7rem;margin:0;line-height:1;color:var(--accent);text-shadow:0 3px 0 var(--title-shadow)}
 .stats{grid-area:stats;display:flex;gap:18px;justify-content:flex-end;align-items:center;min-width:0}
 .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05}
@@ -71,6 +72,19 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .card .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 .card .col{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:220px;margin-top:6px}
 .card .col button{width:100%}
+.nameform{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:230px}
+.nameform label{color:var(--accent);font-weight:700;font-size:.9rem}
+.nameform input{font:inherit;font-size:1rem;padding:10px 12px;border-radius:12px;border:2px solid var(--pit-edge);background:var(--bg);color:var(--ink);text-align:center}
+.nameform input:focus-visible{outline:3px solid var(--accent);outline-offset:1px}
+#lb{z-index:5}
+.lbcard{width:min(340px,100%);max-height:100%}
+.lblist{list-style:none;margin:0;padding:0;width:100%;max-height:min(52vh,420px);overflow-y:auto;display:flex;flex-direction:column;gap:2px;counter-reset:rank}
+.lblist li{display:grid;grid-template-columns:2.2em 1fr auto;gap:8px;align-items:baseline;padding:6px 10px;border-radius:10px;counter-increment:rank;text-align:left}
+.lblist li::before{content:counter(rank);color:var(--muted);font-variant-numeric:tabular-nums}
+.lblist li:nth-child(-n+3)::before{color:var(--accent);font-weight:700}
+.lblist li.me{background:var(--btn)}
+.lblist .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.lblist .s{font-family:var(--display);font-variant-numeric:tabular-nums}
 .card .note{font-size:.8rem;min-height:1.2em;max-width:260px}
 .card .hometitle{color:var(--accent);text-shadow:0 3px 0 var(--title-shadow);font-size:2.4rem}
 .home{background:var(--veil)}
@@ -92,7 +106,8 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
       <div class="stat"><span>Best</span><b id="best">0</b></div>
     </div>
     <div class="btns">
-      <button id="look" type="button">Colors: Midnight</button>
+      <button id="lbbtn" type="button" hidden>Leaderboard</button>
+      <button id="look" type="button" aria-label="Switch colors"><span class="lk">Colors: </span>Midnight</button>
       <button id="sound" type="button">Sound: off</button>
       <button id="saveexit" type="button">Save &amp; exit</button>
     </div>
@@ -109,7 +124,21 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
         <p>Final score</p>
         <div class="big" id="final">0</div>
         <p id="bestline"></p>
-        <div class="row"><button id="again" type="button">Play again</button><button id="tohome" type="button" class="ghost">Home</button></div>
+        <form id="nameform" class="nameform" hidden>
+          <label for="lbname">Add your score to the leaderboard</label>
+          <input id="lbname" type="text" maxlength="16" autocomplete="nickname" placeholder="Your name">
+          <div class="row"><button id="lbsubmit" type="submit">Submit</button><button id="lbskip" type="button" class="ghost">Skip</button></div>
+          <p class="note" id="namenote" aria-live="polite"></p>
+        </form>
+        <div class="row" id="overbtns"><button id="again" type="button">Play again</button><button id="tohome" type="button" class="ghost">Home</button></div>
+      </div>
+    </div>
+    <div class="over home" id="lb" hidden>
+      <div class="card lbcard">
+        <h2 class="hometitle">Leaderboard</h2>
+        <ol class="lblist" id="lblist"></ol>
+        <p class="note" id="lbnote" aria-live="polite"></p>
+        <button id="lbclose" type="button">Close</button>
       </div>
     </div>
     <div class="over home" id="home">
@@ -361,7 +390,7 @@ function createRaster(W,H,COLORS,KR=13,FC=2){
   return {render,setColors,setHi,get OW(){return OW},get OH(){return OH},FW,FH};
 }
 (()=>{
-const W=480,H=560,L=12,R=W-12,B=H-12,CH=52,HY=74,GAP=14,S2=Math.SQRT1_2,PADY=175,PADR=30,PADMAX=9;
+const W=480,H=620,L=12,R=W-12,B=H-12,CH=52,HY=74,GAP=14,S2=Math.SQRT1_2,PADY=175,PADR=30,PADMAX=9;
 const pads=[{x:L,y:PADY,r:PADR,zone:PADR+22,press:0,cnt:0,p:0},{x:R,y:PADY,r:PADR,zone:PADR+22,press:0,cnt:0,p:0}];
 const PLANES=[[1,0,L],[-1,0,-R],[0,-1,-B],[0,1,8],[S2,-S2,(L-B+CH)*S2],[-S2,-S2,(-R-B+CH)*S2]];
 // levels never run out: past 1024 the tables keep extending (2048, 4096, ... up to about a trillion)
@@ -395,12 +424,13 @@ $('best').textContent=best;
 // floating gloops: only 1s and 2s at the start; bigger ones unlock as you build
 // unlock = the level you must reach (value 2^level). New sizes stay rare; 1s thin out once 32s unlock, 2s once you make an 8192.
 const SPAWN=[
-  {level:0,w:()=>maxLevel>=12?20:40},   // 1
-  {level:1,w:()=>maxLevel>=13?22:40},   // 2
-  {level:2,w:()=>14,unlock:5},          // 4  after a 32
-  {level:3,w:()=>9,unlock:8},           // 8  after a 256
-  {level:4,w:()=>5,unlock:11},          // 16 after a 2048
-  {level:5,w:()=>3,unlock:12}];         // 32 after a 4096
+  {level:0,w:()=>maxLevel>=13?4:maxLevel>=12?20:40},   // 1   rarer after a 4096, very rare after an 8192
+  {level:1,w:()=>maxLevel>=13?14:40},                  // 2   a lot rarer after an 8192
+  {level:2,w:()=>14,unlock:5},                         // 4   after a 32
+  {level:3,w:()=>9,unlock:8},                          // 8   after a 256
+  {level:4,w:()=>maxLevel>=13?12:5,unlock:11},         // 16  after a 2048, more common after an 8192
+  {level:5,w:()=>maxLevel>=13?9:3,unlock:12},          // 32  after a 4096, more common after an 8192
+  {level:6,w:()=>4,unlock:14}];                        // 64  after a 16384
 let maxLevel=0;
 function rnd(){const opts=SPAWN.filter(o=>!o.unlock||maxLevel>=o.unlock);let r=Math.random()*opts.reduce((t,o)=>t+o.w(),0);
   for(const o of opts){if((r-=o.w())<0)return o.level}return 0}
@@ -424,7 +454,7 @@ function layoutRow(dt){
     // add on the lighter side, never next to a gloop with the same number
     let lw=0,rw=0;for(const b of row){if(b.cx<W/2)lw+=b.n;else rw+=b.n}
     const left=row.length&&lw<rw,end=left?row[0]:row[row.length-1];
-    while(end&&pending===end.level)pending=rnd();
+    for(let tries=0;end&&pending===end.level&&tries<12;tries++)pending=rnd();
     const rr=radOf(COUNT[pending]),sx=left?L+rr+4:R-rr-4;
     // only spawn into empty space: nothing floating there and no launched gloop passing by
     // (the settled pile never blocks spawning; only floating gloops and a shot that's still flying do)
@@ -514,7 +544,7 @@ const RAS=createRaster(W,H,COLORS,21,2);
 function applyLook(key,save){
   LOOK=LOOKS[key]||LOOKS.midnight;fillColors();RAS.setColors(COLORS);
   document.documentElement.setAttribute('data-look',key==='original'?'original':'midnight');
-  $('look').textContent='Colors: '+LOOK.name;
+  $('look').innerHTML='<span class="lk">Colors: </span>'+LOOK.name;
   if(save){try{localStorage.setItem('gloop-look',key)}catch(e){}}
   if(sim)drawBg();
 }
@@ -583,7 +613,9 @@ function frame(now){
 }
 function gameOver(){
   over=true;grab=null;blip(260,.5,'sawtooth',.12);
+  const newBest=score>best&&score>0;
   if(score>best){best=score;try{localStorage.setItem('gloop-best',best)}catch(e){}}
+  askName(newBest);
   clearSave();
   $('best').textContent=best;$('final').textContent=score;
   $('bestline').textContent=score>=best&&score>0?'New best!':'Best: '+best;
@@ -641,6 +673,45 @@ $('saveexit').onclick=async()=>{
   showHome(ok?'Saved. Pick up right where you left off.':'Saved in this browser only; your account could not be reached.');
 };
 $('tohome').onclick=()=>showHome();
+// ---------- global leaderboard (website only; the Claude version has no server to talk to) ----------
+const LB_URL='/api/leaderboard';
+let lbPausedGame=false,lastName='';
+try{lastName=localStorage.getItem('gloop-name')||''}catch(e){}
+$('lbbtn').hidden=!LB_URL;
+function askName(newBest){
+  const f=$('nameform');f.hidden=!(LB_URL&&newBest);$('overbtns').hidden=!f.hidden;$('namenote').textContent='';
+  if(!f.hidden){$('lbname').value=lastName;$('lbsubmit').disabled=false;setTimeout(()=>$('lbname').focus(),50)}
+}
+function closeNameForm(){$('nameform').hidden=true;$('overbtns').hidden=false;$('again').focus()}
+$('lbskip').onclick=closeNameForm;
+$('nameform').addEventListener('submit',async e=>{
+  e.preventDefault();const name=$('lbname').value.trim();
+  if(!name){$('namenote').textContent='Type a name first.';$('lbname').focus();return}
+  $('lbsubmit').disabled=true;$('namenote').textContent='Sending…';
+  try{
+    const r=await fetch(LB_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,score})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||'The leaderboard could not be reached. Try again in a moment.');
+    lastName=j.name||name;try{localStorage.setItem('gloop-name',lastName)}catch(err){}
+    closeNameForm();openBoard(lastName);
+  }catch(err){$('namenote').textContent=err.message||'The leaderboard could not be reached. Try again in a moment.';$('lbsubmit').disabled=false}
+});
+async function openBoard(highlight){
+  lbPausedGame=!paused&&!over;if(lbPausedGame)paused=true;grab=null;
+  $('lb').hidden=false;$('lblist').textContent='';$('lbnote').textContent='Loading…';$('lbclose').focus();
+  try{
+    const r=await fetch(LB_URL,{cache:'no-store'});const j=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(j.error||'The leaderboard could not be reached. Try again in a moment.');
+    const list=$('lblist');list.textContent='';
+    for(const en of j.entries||[]){const li=document.createElement('li'),n=document.createElement('span'),sc=document.createElement('span');
+      n.className='n';n.textContent=en.name;sc.className='s';sc.textContent=fmt(en.score);li.append(n,sc);
+      if(highlight&&en.name===highlight)li.classList.add('me');list.appendChild(li)}
+    $('lbnote').textContent=(j.entries||[]).length?'':'No scores yet. Be the first!';
+    const me=list.querySelector('.me');if(me)me.scrollIntoView({block:'nearest'});
+  }catch(err){$('lbnote').textContent=err.message}
+}
+$('lbbtn').onclick=()=>openBoard(lastName);
+$('lbclose').onclick=()=>{$('lb').hidden=true;if(lbPausedGame){paused=false;lbPausedGame=false}};
 // autosave while playing, and when the tab is hidden
 setInterval(()=>{if(!paused&&!over&&performance.now()-lastSave>30000)saveNow()},5000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&!paused&&!over)saveNow()});

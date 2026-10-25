@@ -11,3 +11,8 @@ Saves and the best score are kept in each player's own browser.
 
 ## Deploying
 It is a static site with no build step: Vercel serves the files as they are.
+
+## Leaderboard
+The global leaderboard runs on a small Vercel function (`api/leaderboard.js`) that stores scores in Upstash Redis.
+To turn it on: in the Vercel project open **Storage**, create an **Upstash for Redis** database (the free plan is plenty) and connect it to this project, then redeploy.
+Until that's connected, the game still works and the leaderboard simply says it isn't set up yet.
