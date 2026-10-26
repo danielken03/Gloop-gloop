@@ -615,7 +615,7 @@ function gameOver(){
   over=true;grab=null;blip(260,.5,'sawtooth',.12);
   const newBest=score>best&&score>0;
   if(score>best){best=score;try{localStorage.setItem('gloop-best',best)}catch(e){}}
-  askName(newBest);
+  askName(score>0); // every finished game can go on the leaderboard; it keeps each name's best
   clearSave();
   $('best').textContent=best;$('final').textContent=score;
   $('bestline').textContent=score>=best&&score>0?'New best!':'Best: '+best;
