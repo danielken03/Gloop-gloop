@@ -89,6 +89,9 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .lblist li.me{background:var(--btn)}
 .lblist .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .lblist .s{font-family:var(--display);font-variant-numeric:tabular-nums}
+.seg{display:flex;gap:0;border:2px solid var(--pit-edge);border-radius:999px;overflow:hidden;margin:2px 0 4px}
+.card .seg button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:7px 18px;font-size:.9rem}
+.card .seg button[aria-checked="true"]{background:var(--accent);color:var(--card-btn-ink)}
 .card .note{font-size:.8rem;min-height:1.2em;max-width:260px}
 .card .hometitle{color:var(--accent);text-shadow:0 3px 0 var(--title-shadow);font-size:2.4rem}
 .home{background:var(--veil)}
@@ -108,6 +111,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
     <div class="stats">
       <div class="stat"><span>Score</span><b id="score">0</b></div>
       <div class="stat"><span>Best</span><b id="best">0</b></div>
+      <div class="stat"><span>Mode</span><b id="mode">Normal</b></div>
     </div>
     <div class="btns">
       <button id="lbbtn" type="button" hidden>Leaderboard</button>
@@ -142,6 +146,10 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
     <div class="over home" id="lb" hidden>
       <div class="card lbcard">
         <h2 class="hometitle">Leaderboard</h2>
+        <div class="seg" role="radiogroup" aria-label="Which leaderboard">
+          <button id="lbeasy" type="button" role="radio" aria-checked="false">Easy</button>
+          <button id="lbnormal" type="button" role="radio" aria-checked="true">Normal</button>
+        </div>
         <ol class="lblist" id="lblist"></ol>
         <p class="note" id="lbnote" aria-live="polite"></p>
         <button id="lbclose" type="button">Close</button>
@@ -150,7 +158,11 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
     <div class="over home" id="home">
       <div class="card">
         <h2 class="hometitle">Gloop Gloop</h2>
-        <p>Best score</p>
+        <div class="seg" role="radiogroup" aria-label="Difficulty">
+          <button id="diffeasy" type="button" role="radio" aria-checked="false">Easy</button>
+          <button id="diffnormal" type="button" role="radio" aria-checked="true">Normal</button>
+        </div>
+        <p id="homebestlabel">Best score · Normal</p>
         <div class="big" id="homebest">0</div>
         <div class="col">
           <button id="resume" type="button" hidden>Resume game</button>
@@ -423,13 +435,16 @@ const radOf=nn=>7.9*Math.sqrt(nn)+4;
 const $=id=>document.getElementById(id);
 const bg=$('bg'),fl=$('fluid'),fg=$('fg'),bctx=bg.getContext('2d'),fctx=fl.getContext('2d'),gctx=fg.getContext('2d');
 let scale=1,dpr=1,sim,score=0,best=0,over=false,paused=true,danger=0,time=0,pops=[],refill=0,pending=0,grab=null;
-try{best=+localStorage.getItem('gloop-best')||0}catch(e){}
-$('best').textContent=best;
+let bestEasy=0,difficulty='normal',homeDiff='normal',ez={};
+try{best=+localStorage.getItem('gloop-best')||0;bestEasy=+localStorage.getItem('gloop-best-easy')||0;homeDiff=localStorage.getItem('gloop-diff')==='easy'?'easy':'normal'}catch(e){}
+const curBest=()=>difficulty==='easy'?bestEasy:best;
+function showMode(){$('mode').textContent=difficulty==='easy'?'Easy':'Normal';$('best').textContent=curBest().toLocaleString()}
+showMode();
 
 
 // floating gloops: only 1s and 2s at the start; bigger ones unlock as you build
 // unlock = the level you must reach (value 2^level). New sizes stay rare; 1s thin out once 32s unlock, 2s once you make an 8192.
-const SPAWN=[
+const SPAWN_NORMAL=[
   {level:0,w:()=>maxLevel>=13?4:maxLevel>=12?20:40},   // 1   rarer after a 4096, very rare after an 8192
   {level:1,w:()=>maxLevel>=13?14:40},                  // 2   a lot rarer after an 8192
   {level:2,w:()=>14,unlock:5},                         // 4   after a 32
@@ -437,8 +452,34 @@ const SPAWN=[
   {level:4,w:()=>maxLevel>=13?12:5,unlock:11},         // 16  after a 2048, more common after an 8192
   {level:5,w:()=>maxLevel>=13?9:3,unlock:12},          // 32  after a 4096, more common after an 8192
   {level:6,w:()=>4,unlock:14}];                        // 64  after a 16384
+// Easy: a gentler ladder. "unless present" sizes stop spawning but come back (rarely) while one sits in the pit,
+// so a stray small gloop can always be cleared.
+const inPit=l=>{for(const b of sim.blobs.values())if(!b.hover&&b.level===l)return true;return false};
+const gone=(l,w)=>inPit(l)?w:0;
+const SPAWN_EASY=[
+  {level:0, w:()=>maxLevel>=6?gone(0,5):maxLevel>=5?6:30},                                   // 1
+  {level:1, w:()=>maxLevel>=9?gone(1,2):maxLevel>=8?2:maxLevel>=7?6:30},                      // 2
+  {level:2, w:()=>maxLevel>=13?gone(2,2):maxLevel>=12?2:maxLevel>=11?6:25},                   // 4
+  {level:3, w:()=>ez.no8?gone(3,4):maxLevel>=14?6:20, unlock:5},                              // 8    after a 32
+  {level:4, w:()=>ez.no16?gone(4,2):ez.rare16?2:maxLevel>=15?6:16, unlock:7},                 // 16   after a 128
+  {level:5, w:()=>maxLevel>=16?gone(5,4):ez.u512?6:12, unlock:10},                            // 32   after a 1024
+  {level:6, w:()=>10, unlock:12},                                                             // 64   after a 4096
+  {level:7, w:()=>8,  unlock:14},                                                             // 128  after a 16384
+  {level:8, w:()=>6,  unlock:15},                                                             // 256  after a 32768
+  {level:9, w:()=>ez.u512?5:0},                                                               // 512  after 8192 + 16384 + 32768
+  {level:10,w:()=>4,  unlock:16}];                                                            // 1024 after a 65536
+// one-time Easy milestones that depend on what else is in the pit when a gloop is made
+function easyEvents(l){
+  if(difficulty!=='easy')return;
+  const has=k=>{for(const b of sim.blobs.values())if(b.level===k)return true;return false};
+  if(l===13&&has(14))ez.no8=true;                     // a second 8192 while a 16384 is there
+  if(l===13&&has(15))ez.rare16=true;                  // an 8192 while a 32768 is there
+  if(l===14&&has(15))ez.no16=true;                    // a 16384 while a 32768 is there
+  if(l===13&&has(14)&&has(15))ez.u512=true;           // an 8192 while both are there
+}
+let SPAWN=SPAWN_NORMAL;
 let maxLevel=0;
-function rnd(){const opts=SPAWN.filter(o=>!o.unlock||maxLevel>=o.unlock);let r=Math.random()*opts.reduce((t,o)=>t+o.w(),0);
+function rnd(){SPAWN=difficulty==='easy'?SPAWN_EASY:SPAWN_NORMAL;const opts=SPAWN.filter(o=>(!o.unlock||maxLevel>=o.unlock)&&o.w()>0);if(!opts.length)return 0;let r=Math.random()*opts.reduce((t,o)=>t+o.w(),0);
   for(const o of opts){if((r-=o.w())<0)return o.level}return 0}
 function noteLevel(l,x,y){if(l<=maxLevel)return;const before=maxLevel;maxLevel=l;
 }
@@ -455,7 +496,12 @@ function layoutRow(dt){
   if(over||refill>0)return;
   let total=0;for(const b of row)total+=2*radOf(b.n);
   const w=2*radOf(COUNT[pending]);
-  if(row.length&&total+w>(R-L)*0.62)return;
+  if(difficulty==='easy'){
+    // Easy: always keep at least 3 (up to 5 if they fit); once 256s spawn, 3 at most; once 512s spawn, 2 at most
+    const cap=ez.u512?2:maxLevel>=15?3:5,min=Math.min(3,cap);
+    if(row.length>=cap)return;
+    if(row.length>=min&&total+w>(R-L)*0.8)return;
+  }else if(row.length&&total+w>(R-L)*0.62)return;
   {
     // add on the lighter side, never next to a gloop with the same number
     let lw=0,rw=0;for(const b of row){if(b.cx<W/2)lw+=b.n;else rw+=b.n}
@@ -472,7 +518,7 @@ function layoutRow(dt){
   }
 }
 function reset(){
-  for(const pd of pads){pd.p=0;pd.r=PADR}sim=newSim();pops=[];score=0;over=false;danger=0;grab=null;refill=0;maxLevel=0;pending=rnd();
+  for(const pd of pads){pd.p=0;pd.r=PADR}sim=newSim();pops=[];score=0;over=false;danger=0;grab=null;refill=0;maxLevel=0;ez={};pending=rnd();
   $('score').textContent=0;$('over').hidden=true;
   for(let i=0;i<5;i++){refill=0;sim.stats();layoutRow(0)}
   for(let i=0;i<240;i++){sim.step();handleMerges(true);if(i%20==0){sim.stats();refill=0;layoutRow(0)}}
@@ -524,7 +570,7 @@ function handleMerges(quiet){
     done.add(a);done.add(b);
     const lv=A.level,x=(A.cx*A.n+Bb.cx*Bb.n)/(A.n+Bb.n),y=(A.cy*A.n+Bb.cy*Bb.n)/(A.n+Bb.n);
     const hover=A.hover||Bb.hover;if(grab&&(grab.id===a||grab.id===b))grab=null;
-    {const id=sim.mergeBlobs(a,b,lv+1,COUNT[lv+1]);if(!quiet)noteLevel(lv+1);const nb=sim.blobs.get(id);
+    {const id=sim.mergeBlobs(a,b,lv+1,COUNT[lv+1]);if(!quiet){easyEvents(lv+1);noteLevel(lv+1)}const nb=sim.blobs.get(id);
       nb.hover=hover;nb.merged=hover;nb.tx=W/2;nb.ty=HY;
       // a freshly merged gloop waits a beat before it can merge again; bigger numbers wait longer
       nb.lock=Math.round(CHAIN_DELAY[lv+1]*STEP_HZ);
@@ -619,12 +665,13 @@ function frame(now){
 }
 function gameOver(){
   over=true;grab=null;blip(260,.5,'sawtooth',.12);
-  const newBest=score>best&&score>0;
-  if(score>best){best=score;try{localStorage.setItem('gloop-best',best)}catch(e){}}
+  const newBest=score>curBest()&&score>0;
+  if(newBest){if(difficulty==='easy'){bestEasy=score;try{localStorage.setItem('gloop-best-easy',bestEasy)}catch(e){}}
+    else{best=score;try{localStorage.setItem('gloop-best',best)}catch(e){}}}
   askName(score>0); // every finished game can go on the leaderboard; it keeps each name's best
   clearSave();
-  $('best').textContent=best;$('final').textContent=score;
-  $('bestline').textContent=score>=best&&score>0?'New best!':'Best: '+best;
+  showMode();$('final').textContent=fmt(score);
+  $('bestline').textContent=(newBest?'New best!':'Best: '+fmt(curBest()))+(difficulty==='easy'?' · Easy':'');
   $('over').hidden=false;$('again').focus();
 }
 function fit(){
@@ -638,40 +685,48 @@ window.addEventListener('resize',fit);
 // ---------- saving: your own private save in your Claude account, with this browser as a backup ----------
 let store=null,saveDoc=null,saved=null,saving=false,lastSave=0,newArmed=false;
 const fmt=v=>Number(v).toLocaleString();
-function snapshot(){return {v:2,t:Date.now(),score,best,pending,maxLevel,sim:sim.exportState()}}
+function snapshot(){return {v:2,t:Date.now(),score,best,bestEasy,difficulty,ez,pending,maxLevel,sim:sim.exportState()}}
 function localGet(){try{const r=localStorage.getItem('gloop-save');return r?JSON.parse(r):null}catch(e){return null}}
 function localSet(o){try{o?localStorage.setItem('gloop-save',JSON.stringify(o)):localStorage.removeItem('gloop-save')}catch(e){}}
 async function saveNow(){
   if(over||saving)return true;saving=true;const snap=snapshot();lastSave=performance.now();
   localSet(snap);let ok=true;
-  if(saveDoc){try{await saveDoc.set({save:JSON.stringify(snap),best,t:snap.t})}catch(e){ok=false}}
+  if(saveDoc){try{await saveDoc.set({save:JSON.stringify(snap),best,bestEasy,t:snap.t})}catch(e){ok=false}}
   saved=snap;saving=false;return ok;
 }
 async function clearSave(){
   saved=null;localSet(null);
-  if(saveDoc){try{await saveDoc.set({save:null,best,t:Date.now()})}catch(e){}}
+  if(saveDoc){try{await saveDoc.set({save:null,best,bestEasy,t:Date.now()})}catch(e){}}
 }
 function showHome(msg){
   paused=true;grab=null;$('over').hidden=true;$('home').hidden=false;newArmed=false;
   $('newgame').textContent='Start new game';$('newgame').classList.remove('second');
-  $('homebest').textContent=fmt(best);$('best').textContent=fmt(best);
+  paintHomeDiff();showMode();
   if(saved&&saved.sim){$('resume').hidden=false;$('resume').textContent='Resume game · '+fmt(saved.score);$('newgame').classList.add('second')}
   else $('resume').hidden=true;
   $('homenote').textContent=msg||'';
   ($('resume').hidden?$('newgame'):$('resume')).focus();
 }
+function paintHomeDiff(){
+  for(const [id,k] of [['diffeasy','easy'],['diffnormal','normal']])$(id).setAttribute('aria-checked',homeDiff===k?'true':'false');
+  $('homebestlabel').textContent='Best score · '+(homeDiff==='easy'?'Easy':'Normal');
+  $('homebest').textContent=fmt(homeDiff==='easy'?bestEasy:best);
+}
+function pickDiff(k){homeDiff=k;try{localStorage.setItem('gloop-diff',k)}catch(e){}paintHomeDiff()}
+$('diffeasy').onclick=()=>pickDiff('easy');$('diffnormal').onclick=()=>pickDiff('normal');
 function startGame(){$('home').hidden=true;$('over').hidden=true;paused=false;lastSave=performance.now()}
 $('resume').onclick=()=>{
   if(!saved||!saved.sim)return;
   for(const pd of pads){pd.p=0;pd.r=PADR}
   if((saved.v||1)<2){for(const b of saved.sim.b)b[0]+=1;if(saved.maxLevel!=null)saved.maxLevel+=1;if(saved.pending!=null)saved.pending+=1;saved.v=2}
+  difficulty=saved.difficulty==='easy'?'easy':'normal';ez=Object.assign({},saved.ez||{});
   sim=newSim();sim.importState(saved.sim);score=saved.score||0;
   maxLevel=saved.maxLevel??Math.max(0,...saved.sim.b.map(b=>b[0]));pending=saved.pending??rnd();
-  over=false;danger=0;pops=[];refill=0;grab=null;$('score').textContent=fmt(score);drawBg();startGame();
+  over=false;danger=0;pops=[];refill=0;grab=null;$('score').textContent=fmt(score);showMode();drawBg();startGame();
 };
 $('newgame').onclick=()=>{
   if(saved&&saved.sim&&!newArmed){newArmed=true;$('newgame').textContent='Tap again to replace your saved game';return}
-  reset();startGame();
+  difficulty=homeDiff;reset();showMode();startGame();
 };
 $('saveexit').onclick=async()=>{
   if(paused||over)return;paused=true;$('saveexit').disabled=true;$('saveexit').textContent='Saving…';
@@ -698,18 +753,21 @@ $('nameform').addEventListener('submit',async e=>{
   if(!name){$('namenote').textContent='Type a name first.';$('lbname').focus();return}
   $('lbsubmit').disabled=true;$('namenote').textContent='Sending…';
   try{
-    const r=await fetch(LB_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,score})});
+    const r=await fetch(LB_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,score,mode:difficulty})});
     const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||'The leaderboard could not be reached. Try again in a moment.');
     lastName=j.name||name;try{localStorage.setItem('gloop-name',lastName)}catch(err){}
-    closeNameForm();openBoard(lastName);
+    closeNameForm();openBoard(lastName,difficulty);
   }catch(err){$('namenote').textContent=err.message||'The leaderboard could not be reached. Try again in a moment.';$('lbsubmit').disabled=false}
 });
-async function openBoard(highlight){
-  lbPausedGame=!paused&&!over;if(lbPausedGame)paused=true;grab=null;
+let lbMode='normal',lbHighlight='';
+async function openBoard(highlight,mode){
+  if(mode)lbMode=mode;lbHighlight=highlight||'';
+  for(const [id,k] of [['lbeasy','easy'],['lbnormal','normal']])$(id).setAttribute('aria-checked',lbMode===k?'true':'false');
+  if($('lb').hidden){lbPausedGame=!paused&&!over;if(lbPausedGame)paused=true}grab=null;
   $('lb').hidden=false;$('lblist').textContent='';$('lbnote').textContent='Loading…';$('lbclose').focus();
   try{
-    const r=await fetch(LB_URL,{cache:'no-store'});const j=await r.json().catch(()=>({}));
+    const r=await fetch(LB_URL+'?mode='+lbMode,{cache:'no-store'});const j=await r.json().catch(()=>({}));
     if(!r.ok)throw new Error(j.error||'The leaderboard could not be reached. Try again in a moment.');
     const list=$('lblist');list.textContent='';
     for(const en of j.entries||[]){const li=document.createElement('li'),n=document.createElement('span'),sc=document.createElement('span');
@@ -719,23 +777,24 @@ async function openBoard(highlight){
     const me=list.querySelector('.me');if(me)me.scrollIntoView({block:'nearest'});
   }catch(err){$('lbnote').textContent=err.message}
 }
-$('lbbtn').onclick=()=>openBoard(lastName);
+$('lbbtn').onclick=()=>openBoard(lastName,(!paused||over)?difficulty:homeDiff);
+$('lbeasy').onclick=()=>openBoard(lbHighlight,'easy');$('lbnormal').onclick=()=>openBoard(lbHighlight,'normal');
 $('lbclose').onclick=()=>{$('lb').hidden=true;if(lbPausedGame){paused=false;lbPausedGame=false}};
 // autosave while playing, and when the tab is hidden
 setInterval(()=>{if(!paused&&!over&&performance.now()-lastSave>30000)saveNow()},5000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&!paused&&!over)saveNow()});
 async function loadSaves(){
-  saved=localGet();if(saved&&saved.best>best)best=saved.best;
+  saved=localGet();if(saved&&saved.best>best)best=saved.best;if(saved&&saved.bestEasy>bestEasy)bestEasy=saved.bestEasy;
   showHome(window.claude?'Checking for your saved game…':'');
   let db=null,user=null;
   try{[db,user]=await Promise.all([window.claude?.use?.('db')??null,window.claude?.use?.('user')??null])}catch(e){}
   if(db&&user){try{const id=await user.id();if(id){saveDoc=db.doc('data/users/'+id+'/gloop');
     const snap=await saveDoc.get();const d=snap.exists?snap.data():null;
-    if(d){if((d.best||0)>best)best=d.best;
+    if(d){if((d.best||0)>best)best=d.best;if((d.bestEasy||0)>bestEasy)bestEasy=d.bestEasy;
       const remote=d.save?JSON.parse(d.save):null;
       if(remote&&(!saved||remote.t>=saved.t))saved=remote;
       if(!remote&&d.t&&saved&&d.t>saved.t)saved=null}}}catch(e){saveDoc=null}}
-  try{if(best>(+localStorage.getItem('gloop-best')||0))localStorage.setItem('gloop-best',best)}catch(e){}
+  try{if(best>(+localStorage.getItem('gloop-best')||0))localStorage.setItem('gloop-best',best);if(bestEasy>(+localStorage.getItem('gloop-best-easy')||0))localStorage.setItem('gloop-best-easy',bestEasy)}catch(e){}
   if(paused)showHome(saveDoc?'':(saved?'':'Your game will save in this browser.'));
 }
 fit();reset();requestAnimationFrame(frame);loadSaves();

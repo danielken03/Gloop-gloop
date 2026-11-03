@@ -1,10 +1,12 @@
 // Gloop Gloop global leaderboard.
-// GET  /api/leaderboard          -> { entries: [{ name, score }, ...] }  (top 50, highest first)
-// POST /api/leaderboard {name, score} -> { ok: true }
+// GET  /api/leaderboard?mode=easy|normal   -> { entries: [{ name, score }, ...] }  (top 50, highest first)
+// POST /api/leaderboard {name, score, mode} -> { ok: true }
+// Easy and Normal have separate boards; a missing mode means Normal.
 // Scores live in an Upstash Redis sorted set. Connect "Upstash for Redis" to this
 // Vercel project and it adds the URL/token environment variables read below.
 
-const KEY = 'gloop:leaderboard';
+const KEY = 'gloop:leaderboard';            // Normal (kept as-is so existing scores stay)
+const keyFor = mode => (mode === 'easy' ? KEY + ':easy' : KEY);
 const KEEP = 500;      // how many scores to keep in total
 const SHOW = 50;       // how many to send back
 
@@ -48,7 +50,8 @@ module.exports = async (req, res) => {
   if (!c) { res.status(503).json({ error: 'The leaderboard is not set up yet.' }); return; }
   try {
     if (req.method === 'GET') {
-      const [r] = await redis(c, [['ZREVRANGE', KEY, '0', String(SHOW - 1), 'WITHSCORES']]);
+      const mode = (req.query && req.query.mode) || new URL(req.url || '/', 'http://x').searchParams.get('mode');
+      const [r] = await redis(c, [['ZREVRANGE', keyFor(mode), '0', String(SHOW - 1), 'WITHSCORES']]);
       const a = r.result || [];
       const entries = [];
       for (let i = 0; i < a.length; i += 2) entries.push({ name: a[i], score: Number(a[i + 1]) });
@@ -62,7 +65,8 @@ module.exports = async (req, res) => {
       if (!name) { res.status(400).json({ error: 'Type a name first.' }); return; }
       if (!Number.isFinite(score) || score < 1 || score > 1e12) { res.status(400).json({ error: 'That score is not valid.' }); return; }
       // GT: a name only ever moves up, so a lower score never replaces a higher one
-      await redis(c, [['ZADD', KEY, 'GT', String(score), name], ['ZREMRANGEBYRANK', KEY, '0', String(-KEEP - 1)]]);
+      const key = keyFor(body && body.mode);
+      await redis(c, [['ZADD', key, 'GT', String(score), name], ['ZREMRANGEBYRANK', key, '0', String(-KEEP - 1)]]);
       res.status(200).json({ ok: true, name });
       return;
     }
