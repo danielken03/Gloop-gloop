@@ -148,7 +148,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
       <div class="card lbcard">
         <h2 class="hometitle">Leaderboard</h2>
         <div class="seg" role="radiogroup" aria-label="Which leaderboard">
-          <button id="lbeasy" type="button" role="radio" aria-checked="false">Easy</button>
+          <button id="lbeasy" type="button" role="radio" aria-checked="false">Casual</button>
           <button id="lbnormal" type="button" role="radio" aria-checked="true">Normal</button>
           <button id="lbhard" type="button" role="radio" aria-checked="false">Hard</button>
         </div>
@@ -161,7 +161,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
       <div class="card">
         <h2 class="hometitle">Gloop Gloop</h2>
         <div class="seg" role="radiogroup" aria-label="Difficulty">
-          <button id="diffeasy" type="button" role="radio" aria-checked="false">Easy</button>
+          <button id="diffeasy" type="button" role="radio" aria-checked="false">Casual</button>
           <button id="diffnormal" type="button" role="radio" aria-checked="true">Normal</button>
           <button id="diffhard" type="button" role="radio" aria-checked="false">Hard</button>
         </div>
@@ -184,7 +184,7 @@ function createSim(cfg){
   const {W,H,planes}=cfg;const circles=cfg.circles||[];
   const MAXP=20000;
   const HR=cfg.h||15;            // interaction radius (px)
-  const K=cfg.K??0.05, KN=cfg.KN??0.25, RHO0=cfg.RHO0??3, G=cfg.G??0.11, COH=cfg.COH??0.0008, VISC=cfg.VISC??0.08, DAMP=cfg.DAMP??0.985, VMAX=cfg.VMAX??99,AIR=cfg.AIR??0, RSPAN=cfg.RSPAN??11, TETHER=cfg.TETHER??0.03, WOBDAMP=cfg.WOBDAMP??0.975, SLIP=cfg.SLIP??1, REST=cfg.REST??0;let tick=0;const POP=cfg.POP??0.7,RAMPN=cfg.RAMPN??240,HFLAT=cfg.HFLAT??0.006,CDAMP=cfg.CDAMP??0.35,FRIC=cfg.FRIC??0,SIZEPOW=cfg.SIZEPOW??1;const CROSS=cfg.CROSS??0.55,pm=new Float32Array(MAXP),sk=new Uint8Array(MAXP);
+  const K=cfg.K??0.05, KN=cfg.KN??0.25, RHO0=cfg.RHO0??3, G=cfg.G??0.11, COH=cfg.COH??0.0008, VISC=cfg.VISC??0.08, DAMP=cfg.DAMP??0.985, VMAX=cfg.VMAX??99,AIR=cfg.AIR??0, RSPAN=cfg.RSPAN??11, TETHER=cfg.TETHER??0.03, WOBDAMP=cfg.WOBDAMP??0.975, SLIP=cfg.SLIP??1, REST=cfg.REST??0;let tick=0;const POP=cfg.POP??0.7,STIR=cfg.STIR??0,PUNCH=cfg.PUNCH??0,SHOTX=cfg.SHOTX??(cfg.CROSS??0.55),PCAP=cfg.PCAP??3,ANCHOR=cfg.ANCHOR??0,UNNEST=cfg.UNNEST??0,WALLPAD=cfg.WALLPAD??2,AFREE=cfg.AFREE??0.5,GEXP=cfg.GEXP??0,GREF=cfg.GREF??60,GMIN=cfg.GMIN??0.5,GMAX=cfg.GMAX??3,RAMPN=cfg.RAMPN??240,HFLAT=cfg.HFLAT??0.006,CDAMP=cfg.CDAMP??0.35,FRIC=cfg.FRIC??0,SIZEPOW=cfg.SIZEPOW??1;const CROSS=cfg.CROSS??0.55,pm=new Float32Array(MAXP),sk=new Uint8Array(MAXP);
   const x=new Float32Array(MAXP),y=new Float32Array(MAXP),px=new Float32Array(MAXP),py=new Float32Array(MAXP),
         vx=new Float32Array(MAXP),vy=new Float32Array(MAXP),bl=new Int32Array(MAXP);
   let n=0;
@@ -215,16 +215,17 @@ function createSim(cfg){
   }
   function step(){
     stats();
-    for(const b of blobs.values()){if(b.ramp===undefined)b.ramp=1;if(b.ramp<1)b.ramp=Math.min(1,b.ramp+1/RAMPN);b.k=b.ramp*b.ramp;b.dmp=b.wob>0?WOBDAMP:DAMP;if(b.wob>0)b.wob--;if(b.lock>0)b.lock--;if(b.slick>0)b.slick--;
+    for(const b of blobs.values()){if(b.ramp===undefined)b.ramp=1;if(b.ramp<1)b.ramp=Math.min(1,b.ramp+1/RAMPN);b.k=b.ramp*b.ramp;b.dmp=b.wob>0?WOBDAMP:DAMP;if(b.wob>0)b.wob--;if(b.lock>0)b.lock--;if(b.slick>0)b.slick--;if(STIR&&!b.hover){if(b.sa===undefined){b.sa=Math.random()*6.283;b.sb=Math.random()*6.283}b.sa+=0.011+0.004*Math.sin(b.sb);b.sb+=0.007}
       const mvx=b.mvx||0,mvy=b.mvy||0;
       if(b.held){b.fx=(b.tx-b.cx)*0.02-mvx*0.18;b.fy=(b.ty-b.cy)*0.02-mvy*0.18}
       else if(b.hover){const ax=(b.tx-b.cx)*0.0008;b.fx=Math.max(-0.012,Math.min(0.012,ax))-mvx*0.04;b.fy=(b.ty-b.cy)*0.006-mvy*0.08}
-      else{b.fx=0;b.fy=G}}
-    for(let i=0;i<n;i++){const b=blobs.get(bl[i]);pm[i]=b.slick>0?Math.max(b.n,200):b.hover?b.n*0.25:b.n;sk[i]=b.slick>0?1:0;vx[i]+=b.fx;vy[i]+=b.fy;if(b.hover)vy[i]+=(b.ty-y[i])*HFLAT;const ddx=b.cx-x[i],ddy=b.cy-y[i],ck=COH*b.k;vx[i]+=ddx*ck;vy[i]+=ddy*ck;
+      else{b.fx=0;b.fy=GEXP?G*Math.min(GMAX,Math.max(GMIN,Math.pow(GREF/Math.max(1,b.n),GEXP))):G;if(ANCHOR){const sp=Math.hypot(mvx,mvy);if(b.hx===undefined||sp>AFREE||b.slick>0||b.lock>0){b.hx=b.cx;b.hy=b.cy}else{if(b.cy>b.hy)b.hy=b.cy;b.fx+=(b.hx-b.cx)*ANCHOR;b.fy+=(b.hy-b.cy)*ANCHOR}}}}
+    if(STIR){for(const b of blobs.values()){b.smx=0;b.smy=0}for(let i=0;i<n;i++){const b=blobs.get(bl[i]);if(b.hover||b.sa===undefined)continue;b.smx+=Math.cos(b.sa+(y[i]-b.cy)*0.05);b.smy+=Math.sin(b.sa*1.3+(x[i]-b.cx)*0.05)}for(const b of blobs.values())if(b.n){b.smx/=b.n;b.smy/=b.n}}
+    for(let i=0;i<n;i++){const b=blobs.get(bl[i]);pm[i]=b.slick>0?Math.max(b.n,200):b.hover?b.n*0.25:b.n;if(STIR&&!b.hover&&b.sa!==undefined){const dx=x[i]-b.cx,dy=y[i]-b.cy;vx[i]+=STIR*(Math.cos(b.sa+dy*0.05)-b.smx);vy[i]+=STIR*(Math.sin(b.sa*1.3+dx*0.05)-b.smy)}sk[i]=b.slick>0?1:0;vx[i]+=b.fx;vy[i]+=b.fy;if(b.hover)vy[i]+=(b.ty-y[i])*HFLAT;const ddx=b.cx-x[i],ddy=b.cy-y[i],ck=COH*b.k;vx[i]+=ddx*ck;vy[i]+=ddy*ck;
       const re=Math.sqrt(b.n)*RSPAN,d2=ddx*ddx+ddy*ddy;if(d2>re*re){const d=Math.sqrt(d2),f=(d-re)/d*TETHER*b.k;vx[i]+=ddx*f;vy[i]+=ddy*f}
       px[i]=x[i];py[i]=y[i];x[i]+=vx[i];y[i]+=vy[i]}
     grid();
-    merges.length=0;
+    merges.length=0;for(const b of blobs.values()){b.pux=0;b.puy=0}
     for(let i=0;i<n;i++){
       const xi=x[i],yi=y[i];let gx=(xi/CS)|0,gy=((yi+OFF)/CS)|0;
       let rho=0,rhoN=0,m=0;
@@ -240,15 +241,17 @@ function createSim(cfg){
         const p=same?P:Math.max(P,0)+0.006;
         let D=HR*(p*q+Pn*q*q)*0.5;
         if(same){x[j]+=nbX[t]*D;y[j]+=nbY[t]*D;ax-=nbX[t]*D;ay-=nbY[t]*D}
-        else{D*=CROSS;const mi=Math.pow(pm[i],SIZEPOW),mj=Math.pow(pm[j],SIZEPOW),s=2/(mi+mj),wj=mi*s,wi=mj*s; // bigger gloops shove smaller ones (mildly)
+        else{const hit=sk[i]!==sk[j];D*=hit?SHOTX:CROSS;const mi=Math.pow(pm[i],SIZEPOW),mj=Math.pow(pm[j],SIZEPOW),s=2/(mi+mj),wj=mi*s,wi=mj*s;if(PUNCH&&hit){const tb=blobs.get(sk[i]?bl[j]:bl[i]),sg=sk[i]?1:-1;tb.pux+=sg*nbX[t]*D;tb.puy+=sg*nbY[t]*D} // bigger gloops shove smaller ones (mildly)
           x[j]+=nbX[t]*D*wj;y[j]+=nbY[t]*D*wj;ax-=nbX[t]*D*wi;ay-=nbY[t]*D*wi}
       }
       x[i]+=ax;y[i]+=ay;
     }
+    if(PUNCH){for(const b of blobs.values()){if(b.n&&(b.pux||b.puy)){const k=PUNCH/b.n;b.pux*=k;b.puy*=k;const m=Math.hypot(b.pux,b.puy);if(m>PCAP){b.pux*=PCAP/m;b.puy*=PCAP/m}}}
+      for(let i=0;i<n;i++){const b=blobs.get(bl[i]);if(b.pux||b.puy){x[i]+=b.pux;y[i]+=b.puy}}}
     for(let i=0;i<n;i++){
       const ivx=x[i]-px[i],ivy=y[i]-py[i];let hx=0,hy=0,hit=0;
-      for(const pl of planes){const s=pl[0]*x[i]+pl[1]*y[i]-pl[2];if(s<2){x[i]+=pl[0]*(2-s);y[i]+=pl[1]*(2-s);const vn=ivx*pl[0]+ivy*pl[1];if(vn<0){hx-=pl[0]*vn;hy-=pl[1]*vn;hit=1}}}
-      for(const cc of circles){const dx=x[i]-cc.x,dy=y[i]-cc.y,d2=dx*dx+dy*dy,rr=cc.r+4,rz=cc.zone||cc.r+20;if(d2<rz*rz)cc.cnt++;if(d2<rr*rr){const d=Math.sqrt(d2)||.01,nx=dx/d,ny=dy/d,pen=rr-d;
+      for(const pl of planes){const s=pl[0]*x[i]+pl[1]*y[i]-pl[2];if(s<WALLPAD){x[i]+=pl[0]*(WALLPAD-s);y[i]+=pl[1]*(WALLPAD-s);const vn=ivx*pl[0]+ivy*pl[1];if(vn<0){hx-=pl[0]*vn;hy-=pl[1]*vn;hit=1}}}
+      for(const cc of circles){const dx=x[i]-cc.x,dy=y[i]-cc.y,d2=dx*dx+dy*dy,rr=cc.r+2+WALLPAD,rz=cc.zone||cc.r+20;if(d2<rz*rz)cc.cnt++;if(d2<rr*rr){const d=Math.sqrt(d2)||.01,nx=dx/d,ny=dy/d,pen=rr-d;
         cc.press+=pen;x[i]+=nx*pen;y[i]+=ny*pen;const vn=ivx*nx+ivy*ny;if(vn<0){hx-=nx*vn;hy-=ny*vn;hit=1}}}
       let nvx=x[i]-px[i],nvy=y[i]-py[i];
       if(hit){ // slick walls: keep the sliding motion and bounce a little off the wall
@@ -273,6 +276,31 @@ function createSim(cfg){
     for(let i=0;i<n;i++){const b=blobs.get(bl[i]);b.mvx+=vx[i];b.mvy+=vy[i];b.c++}
     for(const b of blobs.values()){if(b.c){b.mvx/=b.c;b.mvy/=b.c}b.ax=b.hover?0:b.mvx*AIR;b.ay=b.hover?0:b.mvy*AIR} // same gentle air drag from the moment of launch
     for(let i=0;i<n;i++){const b=blobs.get(bl[i]);vx[i]=b.mvx+(vx[i]-b.mvx)*b.dmp-b.ax;vy[i]=b.mvy+(vy[i]-b.mvy)*b.dmp-b.ay}
+    // a gloop that ends up wrapped inside another one gets squeezed back out
+    if(UNNEST){tick++;
+      if(tick%6===0){
+        for(const b of blobs.values())b.r2=0;
+        for(let i=0;i<n;i++){const b=blobs.get(bl[i]);const dx=x[i]-b.cx,dy=y[i]-b.cy,d2=dx*dx+dy*dy;if(d2>b.r2)b.r2=d2}
+        const masks=new Map();
+        for(const a of blobs.values()){if(a.hover||a.held||!a.n)continue;
+          const rr=Math.sqrt(a.r2)+1.6*HR,rr2=rr*rr;masks.clear();
+          const gx0=Math.max(0,((a.cx-rr)/CS)|0),gx1=Math.min(GX-1,((a.cx+rr)/CS)|0),gy0=Math.max(0,((a.cy-rr+OFF)/CS)|0),gy1=Math.min(GY-1,((a.cy+rr+OFF)/CS)|0);
+          for(let gy=gy0;gy<=gy1;gy++)for(let gx=gx0;gx<=gx1;gx++){const c=gy*GX+gx;
+            for(let k=cellStart[c],e=cellStart[c+1];k<e;k++){const j=order[k],bj=bl[j];if(bj===a.id)continue;
+              const dx=x[j]-a.cx,dy=y[j]-a.cy,d2=dx*dx+dy*dy;if(d2>rr2)continue;
+              const sec=((Math.atan2(dy,dx)+Math.PI)/(Math.PI/4)|0)&7;masks.set(bj,(masks.get(bj)||0)|(1<<sec))}}
+          for(const [bj,m] of masks){const B=blobs.get(bj);if(!B||B.hover||B.n<a.n)continue;
+            let cnt=0,miss=-1;for(let q=0;q<8;q++){if(m&(1<<q))cnt++;else miss=q}
+            if(cnt<7)continue;
+            let ex,ey;
+            if(cnt===7){const ang=(miss+0.5)*(Math.PI/4)-Math.PI;ex=Math.cos(ang);ey=Math.sin(ang)}
+            else{ex=a.cx-B.cx;ey=a.cy-B.cy;const d=Math.hypot(ex,ey);if(d<4){ex=0;ey=-1}else{ex/=d;ey/=d}}
+            a.ex=ex;a.ey=ey;a.et=12;break}
+        }
+      }
+      for(let i=0;i<n;i++){const b=blobs.get(bl[i]);if(b.et>0){vx[i]+=b.ex*UNNEST;vy[i]+=b.ey*UNNEST}}
+      for(const b of blobs.values())if(b.et>0)b.et--;
+    }
     // merged blobs shed their surplus slowly so they don't collapse inward
     {const kill=new Set();for(const b of blobs.values()){if(!(b.extra>0))continue;
         if(!b.shed)b.shed=Math.max(1,Math.ceil(b.extra/30));let k=Math.min(b.shed,b.extra);
@@ -439,7 +467,7 @@ const $=id=>document.getElementById(id);
 const bg=$('bg'),fl=$('fluid'),fg=$('fg'),bctx=bg.getContext('2d'),fctx=fl.getContext('2d'),gctx=fg.getContext('2d');
 let scale=1,dpr=1,sim,score=0,best=0,over=false,paused=true,danger=0,time=0,pops=[],refill=0,pending=0,grab=null;
 let bestEasy=0,bestHard=0,difficulty='normal',homeDiff='normal',ez={};
-const MODES=['easy','normal','hard'],modeName=m=>m==='easy'?'Easy':m==='hard'?'Hard':'Normal',cleanMode=m=>MODES.includes(m)?m:'normal';
+const MODES=['easy','normal','hard'],modeName=m=>m==='easy'?'Casual':m==='hard'?'Hard':'Normal',cleanMode=m=>MODES.includes(m)?m:'normal';
 try{best=+localStorage.getItem('gloop-best')||0;bestEasy=+localStorage.getItem('gloop-best-easy')||0;bestHard=+localStorage.getItem('gloop-best-hard')||0;homeDiff=cleanMode(localStorage.getItem('gloop-diff'))}catch(e){}
 const bestOf=m=>m==='easy'?bestEasy:m==='hard'?bestHard:best;
 const curBest=()=>bestOf(difficulty);
@@ -491,7 +519,11 @@ function noteLevel(l,x,y){if(l<=maxLevel)return;const before=maxLevel;maxLevel=l
 const PHYS_NORMAL={h:24,K:0.04,KN:0.18,RHO0:3,G:0.013,AIR:0.009,COH:0.001,DAMP:0.85,RSPAN:12,TETHER:0.04,SLIP:1,REST:0.15,FRIC:0.04,CDAMP:0.3,SIZEPOW:0.3};
 // Hard: lighter gravity, loose watery shapes that keep sloshing, slow wavy merges, and no size advantage,
 // so big gloops don't automatically sink under small ones
-const PHYS_HARD={...PHYS_NORMAL,G:0.011,AIR:0.006,COH:0.0003,DAMP:0.988,WOBDAMP:0.996,RSPAN:16,TETHER:0.015,FRIC:0.12,CDAMP:0.15,SIZEPOW:0,POP:1.4,REST:0.3,RAMPN:700,K:0.028,KN:0.13};
+const PHYS_HARD={...PHYS_NORMAL,G:0.016,AIR:0.005,COH:0.0008,DAMP:0.99,WOBDAMP:0.998,RSPAN:12,TETHER:0.04,FRIC:0,CDAMP:0,CROSS:1,SIZEPOW:0,POP:0.8,REST:0.3,RAMPN:700,K:0.028,KN:0.13,
+  GEXP:0.5,GREF:60,GMIN:0.3,GMAX:5,   // small gloops a bit heavier for their size: they push in with momentum but can get stuck part way
+  PUNCH:4,SHOTX:1,PCAP:0.32,          // a launched gloop shoves the whole gloop it hits (never cuts through it)
+  STIR:0.02,ANCHOR:0.0012,AFREE:0.2,   // constant slosh, but each gloop wobbles around its own spot
+  UNNEST:0.4,WALLPAD:12};             // squeeze out any gloop caught inside another; keep edges inside the pit lines
 function newSim(){return createSim({W,H,planes:PLANES,circles:pads,...(difficulty==='hard'?PHYS_HARD:PHYS_NORMAL)})}
 function hovering(){return [...sim.blobs.values()].filter(b=>b.hover).sort((a,b)=>a.cx-b.cx)}
 
@@ -565,7 +597,7 @@ fg.addEventListener('pointermove',e=>{
 });
 function release(){
   if(!grab)return;const b=sim.blobs.get(grab.id),m=Math.hypot(grab.dx,grab.dy);
-  if(b&&b.hover&&m>14){const k=MAXFLING/MAXDRAG;b.hover=false;b.age=0;b.slick=Math.round(0.45*STEP_HZ);sim.setVel(b.id,grab.dx*k,grab.dy*k);refill=Math.max(refill,.3);blip(320+m*2,.1,'triangle',.05);}
+  if(b&&b.hover&&m>14){const k=MAXFLING/MAXDRAG;b.hover=false;b.age=0;b.slick=Math.round((difficulty==='hard'?0.8:0.45)*STEP_HZ);sim.setVel(b.id,grab.dx*k,grab.dy*k);refill=Math.max(refill,.3);blip(320+m*2,.1,'triangle',.05);}
   grab=null;
 }
 fg.addEventListener('pointerup',release);fg.addEventListener('pointercancel',release);
