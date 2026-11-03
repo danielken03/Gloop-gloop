@@ -1,12 +1,12 @@
 // Gloop Gloop global leaderboard.
-// GET  /api/leaderboard?mode=easy|normal   -> { entries: [{ name, score }, ...] }  (top 50, highest first)
+// GET  /api/leaderboard?mode=easy|normal|hard   -> { entries: [{ name, score }, ...] }  (top 50, highest first)
 // POST /api/leaderboard {name, score, mode} -> { ok: true }
-// Easy and Normal have separate boards; a missing mode means Normal.
+// Each difficulty has its own board; a missing or unknown mode means Normal.
 // Scores live in an Upstash Redis sorted set. Connect "Upstash for Redis" to this
 // Vercel project and it adds the URL/token environment variables read below.
 
 const KEY = 'gloop:leaderboard';            // Normal (kept as-is so existing scores stay)
-const keyFor = mode => (mode === 'easy' ? KEY + ':easy' : KEY);
+const keyFor = mode => (mode === 'easy' || mode === 'hard' ? KEY + ':' + mode : KEY);
 const KEEP = 500;      // how many scores to keep in total
 const SHOW = 50;       // how many to send back
 

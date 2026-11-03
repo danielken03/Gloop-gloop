@@ -91,7 +91,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .lblist .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .lblist .s{font-family:var(--display);font-variant-numeric:tabular-nums}
 .seg{display:flex;gap:0;border:2px solid var(--pit-edge);border-radius:999px;overflow:hidden;margin:2px 0 4px}
-.card .seg button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:7px 18px;font-size:.9rem}
+.card .seg button{border:0;border-radius:0;background:transparent;color:var(--muted);padding:7px 15px;font-size:.9rem}
 .card .seg button[aria-checked="true"]{background:var(--accent);color:var(--card-btn-ink)}
 .card .note{font-size:.8rem;min-height:1.2em;max-width:260px}
 .card .hometitle{color:var(--accent);text-shadow:0 3px 0 var(--title-shadow);font-size:2.4rem}
@@ -150,6 +150,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
         <div class="seg" role="radiogroup" aria-label="Which leaderboard">
           <button id="lbeasy" type="button" role="radio" aria-checked="false">Easy</button>
           <button id="lbnormal" type="button" role="radio" aria-checked="true">Normal</button>
+          <button id="lbhard" type="button" role="radio" aria-checked="false">Hard</button>
         </div>
         <ol class="lblist" id="lblist"></ol>
         <p class="note" id="lbnote" aria-live="polite"></p>
@@ -162,6 +163,7 @@ button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
         <div class="seg" role="radiogroup" aria-label="Difficulty">
           <button id="diffeasy" type="button" role="radio" aria-checked="false">Easy</button>
           <button id="diffnormal" type="button" role="radio" aria-checked="true">Normal</button>
+          <button id="diffhard" type="button" role="radio" aria-checked="false">Hard</button>
         </div>
         <p id="homebestlabel">Best score · Normal</p>
         <div class="big" id="homebest">0</div>
@@ -182,7 +184,7 @@ function createSim(cfg){
   const {W,H,planes}=cfg;const circles=cfg.circles||[];
   const MAXP=20000;
   const HR=cfg.h||15;            // interaction radius (px)
-  const K=cfg.K??0.05, KN=cfg.KN??0.25, RHO0=cfg.RHO0??3, G=cfg.G??0.11, COH=cfg.COH??0.0008, VISC=cfg.VISC??0.08, DAMP=cfg.DAMP??0.985, VMAX=cfg.VMAX??99,AIR=cfg.AIR??0, RSPAN=cfg.RSPAN??11, TETHER=cfg.TETHER??0.03, WOBDAMP=cfg.WOBDAMP??0.975, SLIP=cfg.SLIP??1, REST=cfg.REST??0;let tick=0;const POP=cfg.POP??0.7,HFLAT=cfg.HFLAT??0.006,CDAMP=cfg.CDAMP??0.35,FRIC=cfg.FRIC??0,SIZEPOW=cfg.SIZEPOW??1;const CROSS=cfg.CROSS??0.55,pm=new Float32Array(MAXP),sk=new Uint8Array(MAXP);
+  const K=cfg.K??0.05, KN=cfg.KN??0.25, RHO0=cfg.RHO0??3, G=cfg.G??0.11, COH=cfg.COH??0.0008, VISC=cfg.VISC??0.08, DAMP=cfg.DAMP??0.985, VMAX=cfg.VMAX??99,AIR=cfg.AIR??0, RSPAN=cfg.RSPAN??11, TETHER=cfg.TETHER??0.03, WOBDAMP=cfg.WOBDAMP??0.975, SLIP=cfg.SLIP??1, REST=cfg.REST??0;let tick=0;const POP=cfg.POP??0.7,RAMPN=cfg.RAMPN??240,HFLAT=cfg.HFLAT??0.006,CDAMP=cfg.CDAMP??0.35,FRIC=cfg.FRIC??0,SIZEPOW=cfg.SIZEPOW??1;const CROSS=cfg.CROSS??0.55,pm=new Float32Array(MAXP),sk=new Uint8Array(MAXP);
   const x=new Float32Array(MAXP),y=new Float32Array(MAXP),px=new Float32Array(MAXP),py=new Float32Array(MAXP),
         vx=new Float32Array(MAXP),vy=new Float32Array(MAXP),bl=new Int32Array(MAXP);
   let n=0;
@@ -213,7 +215,7 @@ function createSim(cfg){
   }
   function step(){
     stats();
-    for(const b of blobs.values()){if(b.ramp===undefined)b.ramp=1;if(b.ramp<1)b.ramp=Math.min(1,b.ramp+1/240);b.k=b.ramp*b.ramp;b.dmp=b.wob>0?WOBDAMP:DAMP;if(b.wob>0)b.wob--;if(b.lock>0)b.lock--;if(b.slick>0)b.slick--;
+    for(const b of blobs.values()){if(b.ramp===undefined)b.ramp=1;if(b.ramp<1)b.ramp=Math.min(1,b.ramp+1/RAMPN);b.k=b.ramp*b.ramp;b.dmp=b.wob>0?WOBDAMP:DAMP;if(b.wob>0)b.wob--;if(b.lock>0)b.lock--;if(b.slick>0)b.slick--;
       const mvx=b.mvx||0,mvy=b.mvy||0;
       if(b.held){b.fx=(b.tx-b.cx)*0.02-mvx*0.18;b.fy=(b.ty-b.cy)*0.02-mvy*0.18}
       else if(b.hover){const ax=(b.tx-b.cx)*0.0008;b.fx=Math.max(-0.012,Math.min(0.012,ax))-mvx*0.04;b.fy=(b.ty-b.cy)*0.006-mvy*0.08}
@@ -436,10 +438,12 @@ const radOf=nn=>7.9*Math.sqrt(nn)+4;
 const $=id=>document.getElementById(id);
 const bg=$('bg'),fl=$('fluid'),fg=$('fg'),bctx=bg.getContext('2d'),fctx=fl.getContext('2d'),gctx=fg.getContext('2d');
 let scale=1,dpr=1,sim,score=0,best=0,over=false,paused=true,danger=0,time=0,pops=[],refill=0,pending=0,grab=null;
-let bestEasy=0,difficulty='normal',homeDiff='normal',ez={};
-try{best=+localStorage.getItem('gloop-best')||0;bestEasy=+localStorage.getItem('gloop-best-easy')||0;homeDiff=localStorage.getItem('gloop-diff')==='easy'?'easy':'normal'}catch(e){}
-const curBest=()=>difficulty==='easy'?bestEasy:best;
-function showMode(){$('mode').textContent=difficulty==='easy'?'Easy':'Normal';$('best').textContent=curBest().toLocaleString()}
+let bestEasy=0,bestHard=0,difficulty='normal',homeDiff='normal',ez={};
+const MODES=['easy','normal','hard'],modeName=m=>m==='easy'?'Easy':m==='hard'?'Hard':'Normal',cleanMode=m=>MODES.includes(m)?m:'normal';
+try{best=+localStorage.getItem('gloop-best')||0;bestEasy=+localStorage.getItem('gloop-best-easy')||0;bestHard=+localStorage.getItem('gloop-best-hard')||0;homeDiff=cleanMode(localStorage.getItem('gloop-diff'))}catch(e){}
+const bestOf=m=>m==='easy'?bestEasy:m==='hard'?bestHard:best;
+const curBest=()=>bestOf(difficulty);
+function showMode(){$('mode').textContent=modeName(difficulty);$('best').textContent=curBest().toLocaleString()}
 showMode();
 
 
@@ -484,7 +488,11 @@ function rnd(){SPAWN=difficulty==='easy'?SPAWN_EASY:SPAWN_NORMAL;const opts=SPAW
   for(const o of opts){if((r-=o.w())<0)return o.level}return 0}
 function noteLevel(l,x,y){if(l<=maxLevel)return;const before=maxLevel;maxLevel=l;
 }
-function newSim(){return createSim({W,H,planes:PLANES,circles:pads,h:24,K:0.04,KN:0.18,RHO0:3,G:0.013,AIR:0.009,COH:0.001,DAMP:0.85,RSPAN:12,TETHER:0.04,SLIP:1,REST:0.15,FRIC:0.04,CDAMP:0.3,SIZEPOW:0.3})} // less sticky (was FRIC:0.3, CDAMP 0.35)
+const PHYS_NORMAL={h:24,K:0.04,KN:0.18,RHO0:3,G:0.013,AIR:0.009,COH:0.001,DAMP:0.85,RSPAN:12,TETHER:0.04,SLIP:1,REST:0.15,FRIC:0.04,CDAMP:0.3,SIZEPOW:0.3};
+// Hard: lighter gravity, loose watery shapes that keep sloshing, slow wavy merges, and no size advantage,
+// so big gloops don't automatically sink under small ones
+const PHYS_HARD={...PHYS_NORMAL,G:0.011,AIR:0.006,COH:0.0003,DAMP:0.988,WOBDAMP:0.996,RSPAN:16,TETHER:0.015,FRIC:0.12,CDAMP:0.15,SIZEPOW:0,POP:1.4,REST:0.3,RAMPN:700,K:0.028,KN:0.13};
+function newSim(){return createSim({W,H,planes:PLANES,circles:pads,...(difficulty==='hard'?PHYS_HARD:PHYS_NORMAL)})}
 function hovering(){return [...sim.blobs.values()].filter(b=>b.hover).sort((a,b)=>a.cx-b.cx)}
 
 // floating gloops are all drawn toward one point at the top middle; keep 3-5 of them there
@@ -668,11 +676,12 @@ function gameOver(){
   over=true;grab=null;blip(260,.5,'sawtooth',.12);
   const newBest=score>curBest()&&score>0;
   if(newBest){if(difficulty==='easy'){bestEasy=score;try{localStorage.setItem('gloop-best-easy',bestEasy)}catch(e){}}
+    else if(difficulty==='hard'){bestHard=score;try{localStorage.setItem('gloop-best-hard',bestHard)}catch(e){}}
     else{best=score;try{localStorage.setItem('gloop-best',best)}catch(e){}}}
   askName(score>0); // every finished game can go on the leaderboard; it keeps each name's best
   clearSave();
   showMode();$('final').textContent=fmt(score);
-  $('bestline').textContent=(newBest?'New best!':'Best: '+fmt(curBest()))+(difficulty==='easy'?' · Easy':'');
+  $('bestline').textContent=(newBest?'New best!':'Best: '+fmt(curBest()))+(difficulty!=='normal'?' · '+modeName(difficulty):'');
   $('over').hidden=false;$('again').focus();
 }
 function fit(){
@@ -686,18 +695,18 @@ window.addEventListener('resize',fit);
 // ---------- saving: your own private save in your Claude account, with this browser as a backup ----------
 let store=null,saveDoc=null,saved=null,saving=false,lastSave=0,newArmed=false;
 const fmt=v=>Number(v).toLocaleString();
-function snapshot(){return {v:2,t:Date.now(),score,best,bestEasy,difficulty,ez,pending,maxLevel,sim:sim.exportState()}}
+function snapshot(){return {v:2,t:Date.now(),score,best,bestEasy,bestHard,difficulty,ez,pending,maxLevel,sim:sim.exportState()}}
 function localGet(){try{const r=localStorage.getItem('gloop-save');return r?JSON.parse(r):null}catch(e){return null}}
 function localSet(o){try{o?localStorage.setItem('gloop-save',JSON.stringify(o)):localStorage.removeItem('gloop-save')}catch(e){}}
 async function saveNow(){
   if(over||saving)return true;saving=true;const snap=snapshot();lastSave=performance.now();
   localSet(snap);let ok=true;
-  if(saveDoc){try{await saveDoc.set({save:JSON.stringify(snap),best,bestEasy,t:snap.t})}catch(e){ok=false}}
+  if(saveDoc){try{await saveDoc.set({save:JSON.stringify(snap),best,bestEasy,bestHard,t:snap.t})}catch(e){ok=false}}
   saved=snap;saving=false;return ok;
 }
 async function clearSave(){
   saved=null;localSet(null);
-  if(saveDoc){try{await saveDoc.set({save:null,best,bestEasy,t:Date.now()})}catch(e){}}
+  if(saveDoc){try{await saveDoc.set({save:null,best,bestEasy,bestHard,t:Date.now()})}catch(e){}}
 }
 function showHome(msg){
   paused=true;grab=null;$('over').hidden=true;$('home').hidden=false;newArmed=false;
@@ -709,18 +718,18 @@ function showHome(msg){
   ($('resume').hidden?$('newgame'):$('resume')).focus();
 }
 function paintHomeDiff(){
-  for(const [id,k] of [['diffeasy','easy'],['diffnormal','normal']])$(id).setAttribute('aria-checked',homeDiff===k?'true':'false');
-  $('homebestlabel').textContent='Best score · '+(homeDiff==='easy'?'Easy':'Normal');
-  $('homebest').textContent=fmt(homeDiff==='easy'?bestEasy:best);
+  for(const k of MODES)$('diff'+k).setAttribute('aria-checked',homeDiff===k?'true':'false');
+  $('homebestlabel').textContent='Best score · '+modeName(homeDiff);
+  $('homebest').textContent=fmt(bestOf(homeDiff));
 }
 function pickDiff(k){homeDiff=k;try{localStorage.setItem('gloop-diff',k)}catch(e){}paintHomeDiff()}
-$('diffeasy').onclick=()=>pickDiff('easy');$('diffnormal').onclick=()=>pickDiff('normal');
+for(const k of MODES)$('diff'+k).onclick=()=>pickDiff(k);
 function startGame(){$('home').hidden=true;$('over').hidden=true;paused=false;lastSave=performance.now()}
 $('resume').onclick=()=>{
   if(!saved||!saved.sim)return;
   for(const pd of pads){pd.p=0;pd.r=PADR}
   if((saved.v||1)<2){for(const b of saved.sim.b)b[0]+=1;if(saved.maxLevel!=null)saved.maxLevel+=1;if(saved.pending!=null)saved.pending+=1;saved.v=2}
-  difficulty=saved.difficulty==='easy'?'easy':'normal';ez=Object.assign({},saved.ez||{});
+  difficulty=cleanMode(saved.difficulty);ez=Object.assign({},saved.ez||{});
   sim=newSim();sim.importState(saved.sim);score=saved.score||0;
   maxLevel=saved.maxLevel??Math.max(0,...saved.sim.b.map(b=>b[0]));pending=saved.pending??rnd();
   over=false;danger=0;pops=[];refill=0;grab=null;$('score').textContent=fmt(score);showMode();drawBg();startGame();
@@ -764,7 +773,7 @@ $('nameform').addEventListener('submit',async e=>{
 let lbMode='normal',lbHighlight='';
 async function openBoard(highlight,mode){
   if(mode)lbMode=mode;lbHighlight=highlight||'';
-  for(const [id,k] of [['lbeasy','easy'],['lbnormal','normal']])$(id).setAttribute('aria-checked',lbMode===k?'true':'false');
+  for(const k of MODES)$('lb'+k).setAttribute('aria-checked',lbMode===k?'true':'false');
   if($('lb').hidden){lbPausedGame=!paused&&!over;if(lbPausedGame)paused=true}grab=null;
   $('lb').hidden=false;$('lblist').textContent='';$('lbnote').textContent='Loading…';$('lbclose').focus();
   try{
@@ -779,23 +788,23 @@ async function openBoard(highlight,mode){
   }catch(err){$('lbnote').textContent=err.message}
 }
 $('lbbtn').onclick=()=>openBoard(lastName,(!paused||over)?difficulty:homeDiff);
-$('lbeasy').onclick=()=>openBoard(lbHighlight,'easy');$('lbnormal').onclick=()=>openBoard(lbHighlight,'normal');
+for(const k of MODES)$('lb'+k).onclick=()=>openBoard(lbHighlight,k);
 $('lbclose').onclick=()=>{$('lb').hidden=true;if(lbPausedGame){paused=false;lbPausedGame=false}};
 // autosave while playing, and when the tab is hidden
 setInterval(()=>{if(!paused&&!over&&performance.now()-lastSave>30000)saveNow()},5000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&!paused&&!over)saveNow()});
 async function loadSaves(){
-  saved=localGet();if(saved&&saved.best>best)best=saved.best;if(saved&&saved.bestEasy>bestEasy)bestEasy=saved.bestEasy;
+  saved=localGet();if(saved&&saved.best>best)best=saved.best;if(saved&&saved.bestEasy>bestEasy)bestEasy=saved.bestEasy;if(saved&&saved.bestHard>bestHard)bestHard=saved.bestHard;
   showHome(window.claude?'Checking for your saved game…':'');
   let db=null,user=null;
   try{[db,user]=await Promise.all([window.claude?.use?.('db')??null,window.claude?.use?.('user')??null])}catch(e){}
   if(db&&user){try{const id=await user.id();if(id){saveDoc=db.doc('data/users/'+id+'/gloop');
     const snap=await saveDoc.get();const d=snap.exists?snap.data():null;
-    if(d){if((d.best||0)>best)best=d.best;if((d.bestEasy||0)>bestEasy)bestEasy=d.bestEasy;
+    if(d){if((d.best||0)>best)best=d.best;if((d.bestEasy||0)>bestEasy)bestEasy=d.bestEasy;if((d.bestHard||0)>bestHard)bestHard=d.bestHard;
       const remote=d.save?JSON.parse(d.save):null;
       if(remote&&(!saved||remote.t>=saved.t))saved=remote;
       if(!remote&&d.t&&saved&&d.t>saved.t)saved=null}}}catch(e){saveDoc=null}}
-  try{if(best>(+localStorage.getItem('gloop-best')||0))localStorage.setItem('gloop-best',best);if(bestEasy>(+localStorage.getItem('gloop-best-easy')||0))localStorage.setItem('gloop-best-easy',bestEasy)}catch(e){}
+  try{if(best>(+localStorage.getItem('gloop-best')||0))localStorage.setItem('gloop-best',best);if(bestEasy>(+localStorage.getItem('gloop-best-easy')||0))localStorage.setItem('gloop-best-easy',bestEasy);if(bestHard>(+localStorage.getItem('gloop-best-hard')||0))localStorage.setItem('gloop-best-hard',bestHard)}catch(e){}
   if(paused)showHome(saveDoc?'':(saved?'':'Your game will save in this browser.'));
 }
 fit();reset();requestAnimationFrame(frame);loadSaves();
