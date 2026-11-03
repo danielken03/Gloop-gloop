@@ -41,11 +41,12 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;over
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   background-image:radial-gradient(circle at 20% 10%,var(--glow1) 0,transparent 45%),radial-gradient(circle at 85% 90%,var(--glow2) 0,transparent 40%)}
 .app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:12px;box-sizing:border-box;max-width:640px;margin:0 auto}
-header{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"title stats btns";align-items:center;gap:8px 12px}
+header{display:grid;grid-template-columns:1fr auto;grid-template-areas:"title stats" "btns btns";align-items:center;gap:8px 12px}
 header h1{grid-area:title}
-@media (max-width:560px){header{grid-template-columns:1fr auto;grid-template-areas:"title stats" "btns btns"}header .btns{justify-content:flex-start;flex-wrap:wrap}}
+header .btns{justify-content:flex-start;flex-wrap:wrap}
+@media (max-width:560px){header{grid-template-columns:1fr;grid-template-areas:"title" "stats" "btns";gap:6px}header .stats{justify-content:flex-start}header .stat{align-items:flex-start}}
 header h1,header button{white-space:nowrap}
-@media (max-width:440px){.btns{gap:5px}.btns button{font-size:.72rem;padding:5px 9px}.lk{display:none}}
+@media (max-width:440px){.stats{gap:10px}.stat b{font-size:1rem}h1{font-size:1.2rem}.btns{gap:5px}.btns button{font-size:.72rem;padding:5px 9px}.lk{display:none}}
 h1{font-family:var(--display);font-weight:400;font-size:1.7rem;margin:0;line-height:1;color:var(--accent);text-shadow:0 3px 0 var(--title-shadow)}
 .stats{grid-area:stats;display:flex;gap:18px;justify-content:flex-end;align-items:center;min-width:0}
 .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05}
