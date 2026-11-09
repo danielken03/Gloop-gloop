@@ -490,6 +490,19 @@ const SPAWN_NORMAL=[
 const inPit=l=>{for(const b of sim.blobs.values())if(!b.hover&&b.level===l)return true;return false};
 const gone=(l,w)=>inPit(l)?w:0;
 const SPAWN_EASY=[
+  {level:0, w:()=>maxLevel>=6?gone(0,5):maxLevel>=5?6:30},                                   // 1    gone after a 64
+  {level:1, w:()=>maxLevel>=8?gone(1,2):maxLevel>=7?6:30},                                    // 2    gone after a 256
+  {level:2, w:()=>maxLevel>=12?gone(2,2):maxLevel>=11?6:25},                                  // 4    gone after a 4096
+  {level:3, w:()=>maxLevel>=13?gone(3,4):20, unlock:5, early:10},                             // 8    after a 32,    gone after an 8192
+  {level:4, w:()=>maxLevel>=14?gone(4,2):16, unlock:7, early:8},                              // 16   after a 128,   gone after a 16384
+  {level:5, w:()=>maxLevel>=16?gone(5,4):ez.u512?6:12, unlock:10, early:6},                   // 32   after a 1024,  gone after a 65536
+  {level:6, w:()=>10, unlock:12, early:5},                                                    // 64   after a 4096
+  {level:7, w:()=>8,  unlock:14, early:4},                                                    // 128  after a 16384
+  {level:8, w:()=>6,  unlock:15, early:3},                                                    // 256  after a 32768
+  {level:9, w:()=>ez.u512?5:0, early:2.5},                                                    // 512  after 8192 + 16384 + 32768
+  {level:10,w:()=>4,  unlock:16, early:2}];                                                   // 1024 after a 65536
+// rules for Casual games started before the v2 spawn update (kept so saved games play on unchanged)
+const SPAWN_EASY_OLD=[
   {level:0, w:()=>maxLevel>=6?gone(0,5):maxLevel>=5?6:30},                                   // 1
   {level:1, w:()=>maxLevel>=9?gone(1,2):maxLevel>=8?2:maxLevel>=7?6:30},                      // 2
   {level:2, w:()=>maxLevel>=13?gone(2,2):maxLevel>=12?2:maxLevel>=11?6:25},                   // 4
@@ -501,19 +514,38 @@ const SPAWN_EASY=[
   {level:8, w:()=>6,  unlock:15},                                                             // 256  after a 32768
   {level:9, w:()=>ez.u512?5:0},                                                               // 512  after 8192 + 16384 + 32768
   {level:10,w:()=>4,  unlock:16}];                                                            // 1024 after a 65536
+// Casual bonus: a size made by merging in the floating row spawns early, at half its normal chance,
+// until the pit unlocks it for real ("early" is that half chance)
+const earlyOK=o=>o.early&&ez.row&&ez.row[o.level];
 // one-time Easy milestones that depend on what else is in the pit when a gloop is made
 function easyEvents(l){
   if(difficulty!=='easy')return;
   const has=k=>{for(const b of sim.blobs.values())if(b.level===k)return true;return false};
-  if(l===13&&has(14))ez.no8=true;                     // a second 8192 while a 16384 is there
-  if(l===13&&has(15))ez.rare16=true;                  // an 8192 while a 32768 is there
-  if(l===14&&has(15))ez.no16=true;                    // a 16384 while a 32768 is there
+  if(!ez.v){                                          // older Casual games only
+    if(l===13&&has(14))ez.no8=true;                   // a second 8192 while a 16384 is there
+    if(l===13&&has(15))ez.rare16=true;                // an 8192 while a 32768 is there
+    if(l===14&&has(15))ez.no16=true;                  // a 16384 while a 32768 is there
+  }
   if(l===13&&has(14)&&has(15))ez.u512=true;           // an 8192 while both are there
 }
 let SPAWN=SPAWN_NORMAL;
 let maxLevel=0;
-function rnd(){SPAWN=difficulty==='easy'?SPAWN_EASY:SPAWN_NORMAL;const opts=SPAWN.filter(o=>(!o.unlock||maxLevel>=o.unlock)&&o.w()>0);if(!opts.length)return 0;let r=Math.random()*opts.reduce((t,o)=>t+o.w(),0);
-  for(const o of opts){if((r-=o.w())<0)return o.level}return 0}
+// pairs in the pit that let the next milestone's size spawn early, at half chance, while both are there
+const COMBO=[[4,3,3],[6,5,4],[9,8,5],[11,10,6],[13,12,7],[14,13,8],[15,14,10]];   // [bigger, smaller, size added]
+function spawnW(o){const open=!o.unlock||maxLevel>=o.unlock,w=open?o.w():0;if(w>0)return w;
+  if(difficulty!=='easy'||!(ez.v>=2))return 0;
+  // the early chance only applies before a size is unlocked for real (512's unlock is its event); retired sizes don't come back this way
+  const locked=o.unlock?!open:(o.level===9&&!ez.u512);if(!locked)return 0;
+  if(earlyOK(o))return o.early;
+  for(const [a,b,l] of COMBO)if(l===o.level&&inPit(a)&&inPit(b))return o.early;
+  return 0}
+function rnd(){
+  const casual=difficulty==='easy';SPAWN=casual?(ez.v>=2?SPAWN_EASY:SPAWN_EASY_OLD):SPAWN_NORMAL;
+  const opts=SPAWN.filter(o=>spawnW(o)>0).map(o=>[o.level,spawnW(o)]);
+  // sizes past 1024 made in the floating row spawn too, rarely
+  if(casual&&ez.v>=2&&ez.row)for(const k in ez.row)if(+k>10)opts.push([+k,2]);
+  if(!opts.length)return 0;let r=Math.random()*opts.reduce((t,o)=>t+o[1],0);
+  for(const [l,w] of opts){if((r-=w)<0)return l}return 0}
 function noteLevel(l,x,y){if(l<=maxLevel)return;const before=maxLevel;maxLevel=l;
 }
 const PHYS_NORMAL={h:24,K:0.04,KN:0.18,RHO0:3,G:0.013,AIR:0.009,COH:0.001,DAMP:0.85,RSPAN:12,TETHER:0.04,SLIP:1,REST:0.15,FRIC:0.04,CDAMP:0.3,SIZEPOW:0.3};
@@ -559,7 +591,7 @@ function layoutRow(dt){
   }
 }
 function reset(){
-  for(const pd of pads){pd.p=0;pd.r=PADR}sim=newSim();pops=[];score=0;over=false;danger=0;grab=null;refill=0;maxLevel=0;ez={};pending=rnd();
+  for(const pd of pads){pd.p=0;pd.r=PADR}sim=newSim();pops=[];score=0;over=false;danger=0;grab=null;refill=0;maxLevel=0;ez={v:2};pending=rnd();
   $('score').textContent=0;$('over').hidden=true;
   for(let i=0;i<5;i++){refill=0;sim.stats();layoutRow(0)}
   for(let i=0;i<240;i++){sim.step();handleMerges(true);if(i%20==0){sim.stats();refill=0;layoutRow(0)}}
@@ -611,7 +643,7 @@ function handleMerges(quiet){
     done.add(a);done.add(b);
     const lv=A.level,x=(A.cx*A.n+Bb.cx*Bb.n)/(A.n+Bb.n),y=(A.cy*A.n+Bb.cy*Bb.n)/(A.n+Bb.n);
     const hover=A.hover||Bb.hover;if(grab&&(grab.id===a||grab.id===b))grab=null;
-    {const id=sim.mergeBlobs(a,b,lv+1,COUNT[lv+1]);if(!quiet){easyEvents(lv+1);noteLevel(lv+1)}const nb=sim.blobs.get(id);
+    {const id=sim.mergeBlobs(a,b,lv+1,COUNT[lv+1]);if(!quiet){easyEvents(lv+1);if(hover&&difficulty==='easy'){ez.row=ez.row||{};ez.row[lv+1]=1}noteLevel(lv+1)}const nb=sim.blobs.get(id);
       nb.hover=hover;nb.merged=hover;nb.tx=W/2;nb.ty=HY;
       // a freshly merged gloop waits a beat before it can merge again; bigger numbers wait longer
       nb.lock=Math.round(CHAIN_DELAY[lv+1]*STEP_HZ);
