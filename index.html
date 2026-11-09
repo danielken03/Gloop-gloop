@@ -514,8 +514,8 @@ const SPAWN_EASY_OLD=[
   {level:8, w:()=>6,  unlock:15},                                                             // 256  after a 32768
   {level:9, w:()=>ez.u512?5:0},                                                               // 512  after 8192 + 16384 + 32768
   {level:10,w:()=>4,  unlock:16}];                                                            // 1024 after a 65536
-// Casual bonus: a size made by merging in the floating row spawns early, at half its normal chance,
-// until the pit unlocks it for real ("early" is that half chance)
+// "early" is half a size's normal chance: used while a COMBO pair is in the pit.
+// A size made by merging in the floating row spawns at a tenth of its normal chance until the pit unlocks it for real.
 const earlyOK=o=>o.early&&ez.row&&ez.row[o.level];
 // one-time Easy milestones that depend on what else is in the pit when a gloop is made
 function easyEvents(l){
@@ -536,14 +536,15 @@ function spawnW(o){const open=!o.unlock||maxLevel>=o.unlock,w=open?o.w():0;if(w>
   if(difficulty!=='easy'||!(ez.v>=2))return 0;
   // the early chance only applies before a size is unlocked for real (512's unlock is its event); retired sizes don't come back this way
   const locked=o.unlock?!open:(o.level===9&&!ez.u512);if(!locked)return 0;
-  if(earlyOK(o))return o.early;
   for(const [a,b,l] of COMBO)if(l===o.level&&inPit(a)&&inPit(b))return o.early;
+  if(earlyOK(o))return o.early*ROW_RARE;   // made in the floating row: very rare until unlocked for real
   return 0}
+const ROW_RARE=0.2;   // a fifth of the half chance, i.e. a tenth of the normal chance
 function rnd(){
   const casual=difficulty==='easy';SPAWN=casual?(ez.v>=2?SPAWN_EASY:SPAWN_EASY_OLD):SPAWN_NORMAL;
   const opts=SPAWN.filter(o=>spawnW(o)>0).map(o=>[o.level,spawnW(o)]);
   // sizes past 1024 made in the floating row spawn too, rarely
-  if(casual&&ez.v>=2&&ez.row)for(const k in ez.row)if(+k>10)opts.push([+k,2]);
+  if(casual&&ez.v>=2&&ez.row)for(const k in ez.row)if(+k>10)opts.push([+k,2*ROW_RARE]);
   if(!opts.length)return 0;let r=Math.random()*opts.reduce((t,o)=>t+o[1],0);
   for(const [l,w] of opts){if((r-=w)<0)return l}return 0}
 function noteLevel(l,x,y){if(l<=maxLevel)return;const before=maxLevel;maxLevel=l;
