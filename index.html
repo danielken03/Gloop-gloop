@@ -444,8 +444,12 @@ const pads=[{x:L,y:PADY,r:PADR,zone:PADR+22,press:0,cnt:0,p:0},{x:R,y:PADY,r:PAD
 const PLANES=[[1,0,L],[-1,0,-R],[0,-1,-B],[0,1,8],[S2,-S2,(L-B+CH)*S2],[-S2,-S2,(-R-B+CH)*S2]];
 // levels never run out: past 1024 the tables keep extending (2048, 4096, ... up to about a trillion)
 const LEVELS=41;
-const COUNT=[9,12,16,22,31,43,62,88,120,160,210];
-while(COUNT.length<LEVELS)COUNT.push(Math.round(COUNT[COUNT.length-1]*1.22));
+const COUNT_BASE=[9,12,16,22,31,43,62,88,120,160,210];
+while(COUNT_BASE.length<LEVELS)COUNT_BASE.push(Math.round(COUNT_BASE[COUNT_BASE.length-1]*1.22));
+// Casual gloops are 7% smaller across (0.93^2 = 0.865 of the area), for Casual games started after this change
+const COUNT_SMALL=COUNT_BASE.map(n=>Math.max(8,Math.round(n*0.865)));
+let COUNT=COUNT_BASE;
+function setCounts(){COUNT=difficulty==='easy'&&ez.v>=3?COUNT_SMALL:COUNT_BASE}
 const LOOKS={
   midnight:{name:'Midnight',gloops:["#b9a9e0","#ff8fbf","#ffb36b","#f5e663","#7fe08a","#5fd8e8","#6fa0ff","#a18cff","#f28cf0","#ff7b7b","#f0c987"],more:[82,72,66],
     frame:'#0f1219',floor:'#07080d',edge:'#262b3a',line:'14,16,26',dot:'#0e101a',score:'#ffe6a3',glow:'255,230,163',padHue:250,padLight:78,padSat:[35,50],padMax:[95,70]},
@@ -592,7 +596,7 @@ function layoutRow(dt){
   }
 }
 function reset(){
-  for(const pd of pads){pd.p=0;pd.r=PADR}sim=newSim();pops=[];score=0;over=false;danger=0;grab=null;refill=0;maxLevel=0;ez={v:2};pending=rnd();
+  for(const pd of pads){pd.p=0;pd.r=PADR}sim=newSim();pops=[];score=0;over=false;danger=0;grab=null;refill=0;maxLevel=0;ez={v:3};setCounts();pending=rnd();
   $('score').textContent=0;$('over').hidden=true;
   for(let i=0;i<5;i++){refill=0;sim.stats();layoutRow(0)}
   for(let i=0;i<240;i++){sim.step();handleMerges(true);if(i%20==0){sim.stats();refill=0;layoutRow(0)}}
@@ -794,7 +798,7 @@ $('resume').onclick=()=>{
   if(!saved||!saved.sim)return;
   for(const pd of pads){pd.p=0;pd.r=PADR}
   if((saved.v||1)<2){for(const b of saved.sim.b)b[0]+=1;if(saved.maxLevel!=null)saved.maxLevel+=1;if(saved.pending!=null)saved.pending+=1;saved.v=2}
-  difficulty=cleanMode(saved.difficulty);ez=Object.assign({},saved.ez||{});
+  difficulty=cleanMode(saved.difficulty);ez=Object.assign({},saved.ez||{});setCounts();
   sim=newSim();sim.importState(saved.sim);score=saved.score||0;
   maxLevel=saved.maxLevel??Math.max(0,...saved.sim.b.map(b=>b[0]));pending=saved.pending??rnd();
   over=false;danger=0;pops=[];refill=0;grab=null;$('score').textContent=fmt(score);showMode();drawBg();startGame();
